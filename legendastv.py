@@ -46,6 +46,7 @@
 
 import os
 import re
+import sys
 import urllib
 import urllib2
 from lxml import html
@@ -53,9 +54,14 @@ from datetime import datetime
 import difflib
 import rarfile
 import zipfile
+import ConfigParser
 
-username = ""
-password = ""
+# These factory settings are also available at config file
+login      = ""
+password   = ""
+debug      = True
+cache      = False
+similarity = 0.7
 
 
 # Languages [and flag names (country "codes")]:
@@ -120,17 +126,49 @@ password = ""
 # 40 - Thriller
 # 39 - Western
 
-debug = True
-cache = False
-min_similarity = 0.7
 
-appname = "legendas"
-dir_cache = os.path.join(os.environ.get('XDG_CACHE_HOME') or
-                         os.path.join(os.path.expanduser('~'), '.cache'),
-                         appname)
-dir_prefs = os.path.join(os.environ.get('XDG_CONFIG_HOME') or
-                         os.path.join(os.path.expanduser('~'), '.config'),
-                         appname)
+def read_config():
+    global login, password, debug, cache, similarity
+
+    cp = ConfigParser.SafeConfigParser()
+    config_file = os.path.join(_config_dir, _appname + ".ini")
+
+    if not os.path.exists(config_file):
+        if not os.path.isdir(_config_dir):
+            os.makedirs(_config_dir)
+        cp.add_section("Preferences")
+        cp.set("Preferences", "login"     , str(login))
+        cp.set("Preferences", "password"  , str(password))
+        cp.set("Preferences", "debug"     , str(debug))
+        cp.set("Preferences", "cache"     , str(cache))
+        cp.set("Preferences", "similarity", str(similarity))
+
+        with open(config_file, 'w') as f:
+            cp.write(f)
+
+        if debug: sys.stderr.write("A blank config file was created at %s\n"
+            "Please edit it and fill in login and password before using this"
+            " module\n" % config_file)
+
+        return
+
+    cp.read(config_file)
+
+
+    if cp.has_section("Preferences"):
+        try:
+            login      = cp.get("Preferences", "login")           or login
+            password   = cp.get("Preferences", "password")        or password
+            similarity = cp.getfloat("Preferences", "similarity") or similarity
+            debug      = cp.getboolean("Preferences", "debug")
+            cache      = cp.getboolean("Preferences", "cache")
+        except:
+            pass
+
+    if not (login and password):
+        sys.stderr.write("Login or password is blank. You won't be able to"
+            " access Legendas.TV without it.\nPlease edit your config file"
+            " at %s\nand fill them in\n" % config_file)
 
 def fields_to_int(dict, *keys):
     """ Helper function to cast several fields in a dict to int
@@ -305,11 +343,11 @@ class HttpBot(object):
         return filename
 
     def cache(self, url):
-        filename = os.path.join(dir_cache, os.path.basename(url))
+        filename = os.path.join(_cache_dir, os.path.basename(url))
         if os.path.exists(filename):
             return True
         else:
-            return (self.download(url, dir_cache))
+            return (self.download(url, _cache_dir))
 
 
 class LegendasTV(HttpBot):
@@ -396,9 +434,6 @@ class LegendasTV(HttpBot):
 
         #TODO: Looking good, now parse it! :)
         return data
-
-
-
 
     """ Convenience wrappers for the main getSubtitles method """
 
@@ -523,15 +558,24 @@ class LegendasTV(HttpBot):
         # TODO: Come on, don't be lazy.. rank them!
         return subtitles
 
-if __name__ == "__main__":
+
+_appname = "legendastv"
+_cache_dir = os.path.join(os.environ.get('XDG_CACHE_HOME') or
+                          os.path.join(os.path.expanduser('~'), '.cache'),
+                          _appname)
+_config_dir = os.path.join(os.environ.get('XDG_CONFIG_HOME') or
+                           os.path.join(os.path.expanduser('~'), '.config'),
+                           _appname)
+read_config()
+
+if __name__ == "__main__" and login and password:
 
     # scrap area, with a common workflow...
 
     # Log in
-    legendastv = LegendasTV(username, password)
+    legendastv = LegendasTV(login, password)
 
     examples = [
-        "~/Videos/2012 2009 BluRay 720p DTS x264-3Li/2012 2009 3Li BluRay.mkv",
         "~/Videos/Dancer.In.The.Dark.[2000].DVDRip.XviD-BLiTZKRiEG.avi",
         "~/Videos/The.Raven.2012.720p.BluRay.x264-iNFAMOUS[EtHD]/"
             "inf-raven720p.mkv",
@@ -540,6 +584,7 @@ if __name__ == "__main__":
         "~/Videos/Thor.2011.720p.BluRay.x264-Felony/f-thor.720.mkv",
         "~/Videos/Universal Soldier-720p MP4 AAC x264 BRRip 1992-CC/"
             "Universal Soldier-720p MP4 AAC x264 BRRip 1992-CC.mp4",
+        "~/Videos/2012 2009 BluRay 720p DTS x264-3Li/2012 2009 3Li BluRay.mkv",
     ]
 
     # User selects a movie...
@@ -551,7 +596,8 @@ if __name__ == "__main__":
 
         # Which string we use first for searches? Dirname or Filename?
         # If they are similar, take the dir. If not, take the longest
-        if get_similarity(dirname, filename)>0.4 or len(dirname)>len(filename):
+        if get_similarity(dirname, filename) > similarity or \
+           len(dirname) > len(filename):
             searchlist = (dirname, filename)
         else:
             searchlist = (filename, dirname)
@@ -593,7 +639,7 @@ if __name__ == "__main__":
                 print "Chosen movie: %s" % result
 
                 # But... Is it really similar? Maybe results were capped at 10
-                if result['similarity'] > min_similarity or len(movies)<10:
+                if result['similarity'] > similarity or len(movies)<10:
                     movie.update(result['best'])
                     subs = legendastv.getSubtitlesByMovie(movie)
 
