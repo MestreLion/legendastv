@@ -554,7 +554,7 @@ class LegendasTV(HttpBot):
         return self.download('info.php?c=1&d=' + id, dir, filename)
 
     def rankSubtitles(self, movie, subtitles):
-        # TODO: Come on, don't be lazy.. rank them!
+        # TODO: Come on, don't be lazy.. rank them! ASAP!
         return subtitles
 
 
@@ -587,126 +587,122 @@ if __name__ == "__main__" and login and password:
     ]
 
     # User selects a movie...
-    for usermovie in [os.path.expanduser(e) for e in examples]:
+    usermovie = os.path.expanduser(examples[2])
 
-        savedir = os.path.dirname(usermovie)
-        dirname = os.path.basename(savedir)
-        filename = os.path.splitext(os.path.basename(usermovie))[0]
+    savedir = os.path.dirname(usermovie)
+    dirname = os.path.basename(savedir)
+    filename = os.path.splitext(os.path.basename(usermovie))[0]
 
-        # Which string we use first for searches? Dirname or Filename?
-        # If they are similar, take the dir. If not, take the longest
-        if get_similarity(dirname, filename) > similarity or \
-           len(dirname) > len(filename):
-            searchlist = (dirname, filename)
+    # Which string we use first for searches? Dirname or Filename?
+    # If they are similar, take the dir. If not, take the longest
+    if get_similarity(dirname, filename) > similarity or \
+       len(dirname) > len(filename):
+        search = dirname
+    else:
+        search = filename
+
+    # Now let's play with that string and try to get some useful info
+    movie = guess_movie_info(search)
+    print "Search parameters: %s" % movie
+
+    # Let's begin with a movie search
+    if len(movie['title']) >= 2:
+        movies = legendastv.getMovies(movie['title'], 2)
+    else:
+        # quite a corner case, but still... title + year on release
+        movies = legendastv.getMovies("%s %s" % (movie['title'],
+                                                 movie['year']), 1) + \
+                 legendastv.getMovies("%s %s" % (movie['title'],
+                                                 movie['year']), 2)
+
+    if len(movies) > 0:
+
+        # Nice! Lets pick the best movie...
+
+        for m in movies:
+            # Fist, clean up title...
+            title = clean_string(m['title'])
+            if title.endswith(" %s" % m['year']):
+                title = title[:-5]
+
+            # Now add a helper field
+            m['search'] = "%s %s" % (title, m['year'])
+
+        # May the Force be with... the most similar!
+        result = choose_best_by_key("%s %s" % (movie['title'],
+                                               movie['year']),
+                                    movies,
+                                    'search')
+        print "Chosen movie: %s" % result
+
+        # But... Is it really similar? Maybe results were capped at 10
+        if result['similarity'] > similarity or len(movies)<10:
+            movie.update(result['best'])
+            subs = legendastv.getSubtitlesByMovie(movie)
+
         else:
-            searchlist = (filename, dirname)
+            # Almost giving up... forget movie matching
+            print "Not similar enough. Retrying..."
+            subs = legendastv.getSubtitlesByText("%s %s" %
+                                                 (movie['title'],
+                                                  movie['year']), 1)
 
-        for search in searchlist:
+    else:
+        # Ok, let's try by release...
+        subs = legendastv.getSubtitlesByText(movie['title'], 1)
 
-            # Now let's play with that string and try to get some useful info
-            movie = guess_movie_info(search)
-            print "Search parameters: %s" % movie
+    if len(subs) > 0:
 
-            # Let's begin with a movie search
-            if len(movie['title']) >= 2:
-                movies = legendastv.getMovies(movie['title'], 2)
+        # Good! Lets choose and download the best subtitle...
+        subtitles = legendastv.rankSubtitles(movie, subs)
+        print "Chosen subtitle: %s" % subtitles[0]
+
+        # UI suggestion: present the user with a single subtitle, and the
+        # following message:
+        # "This is the best subtitle match we've found, how about it?"
+        # And 3 options:
+        # - "Yes, perfect, you nailed it! Download it for me"
+        # - "This is nice, but not there yet. Let's see what else you've found"
+        #   (show a list of the other subtitles found)
+        # - "Eww, not even close! Let's try other search options"
+        #   (show the search options used, let user edit them, and retry)
+
+        #TODO: Cache the archives so we don't download them over and over...
+        archive = legendastv.downloadSubtitle(subtitles[0]['id'], savedir)
+        files = extract_archive(archive, savedir, [".srt"])
+        if len(files) > 1:
+            # Damn those multi-file archives!
+
+            # Build a new list suitable for comparing
+            files = [dict(compare=clean_string(os.path.basename(
+                                               os.path.splitext(f)[0])),
+                          original=f)
+                     for f in files]
+
+            # Should we use file or dir as a reference?
+            dirname_compare  = clean_string(dirname)
+            filename_compare = clean_string(filename)
+            if get_similarity(dirname_compare , files[0]['compare']) > \
+               get_similarity(filename_compare, files[0]['compare']):
+                result = choose_best_by_key(dirname_compare,
+                                            files, 'compare')
             else:
-                # quite a corner case, but still... title + year on release
-                movies = legendastv.getMovies("%s %s" % (movie['title'],
-                                                         movie['year']), 1) + \
-                         legendastv.getMovies("%s %s" % (movie['title'],
-                                                         movie['year']), 2)
+                result = choose_best_by_key(filename_compare,
+                                            files, 'compare')
 
-            if len(movies) > 0:
+            print "Chosen file: %s" % result
+            file = result['best']
+            files.remove(file) # remove the chosen from list
+            [os.remove(f['original']) for f in files] # delete the list
+            file = result['best']['original'] # convert back to string
+        else:
+            file = files[0] # so much easier...
 
-                # Nice! Lets pick the best movie...
+        newname = os.path.join(savedir, filename) + ".srt.TXT"
+        print "Renaming %s to %s" % (file, newname)
+        os.rename(file, newname)
 
-                for m in movies:
-                    # Fist, clean up title...
-                    title = clean_string(m['title'])
-                    if title.endswith(" %s" % m['year']):
-                        title = title[:-5]
-
-                    # Now add a helper field
-                    m['search'] = "%s %s" % (title, m['year'])
-
-                # May the Force be with... the most similar!
-                result = choose_best_by_key("%s %s" % (movie['title'],
-                                                       movie['year']),
-                                            movies,
-                                            'search')
-                print "Chosen movie: %s" % result
-
-                # But... Is it really similar? Maybe results were capped at 10
-                if result['similarity'] > similarity or len(movies)<10:
-                    movie.update(result['best'])
-                    subs = legendastv.getSubtitlesByMovie(movie)
-
-                else:
-                    # Almost giving up... forget movie matching
-                    print "Not similar enough. Retrying..."
-                    subs = legendastv.getSubtitlesByText("%s %s" %
-                                                         (movie['title'],
-                                                          movie['year']), 1)
-
-            else:
-                # Ok, let's try by release...
-                subs = legendastv.getSubtitlesByText(movie['title'], 1)
-
-            if len(subs) > 0:
-
-                # Good! Lets choose and download the best subtitle...
-                subtitles = legendastv.rankSubtitles(movie, subs)
-                print "Chosen subtitle: %s" % subtitles[0]
-
-                # UI suggestion: present the user with a single subtitle, and the
-                # following message:
-                # "This is the best subtitle match we've found, how about it?"
-                # And 3 options:
-                # - "Yes, perfect, you nailed it! Download it for me"
-                # - "This is nice, but not there yet. Let's see what else you've found"
-                #   (show a list of the other subtitles found)
-                # - "Eww, not even close! Let's try other search options"
-                #   (show the search options used, let user edit them, and retry)
-
-                #TODO: Cache the archives so we don't download them over and over.....,
-                archive = legendastv.downloadSubtitle(subtitles[0]['id'], savedir)
-                files = extract_archive(archive, savedir, [".srt"])
-                if len(files) > 1:
-                    # Damn those multi-file archives!
-
-                    # Build a new list suitable for comparing
-                    files = [dict(compare=clean_string(os.path.basename(
-                                                    os.path.splitext(f)[0])),
-                                  original=f)
-                             for f in files]
-
-                    # Should we use file or dir as a reference?
-                    dirname_compare  = clean_string(dirname)
-                    filename_compare = clean_string(filename)
-                    if get_similarity(dirname_compare , files[0]['compare']) > \
-                       get_similarity(filename_compare, files[0]['compare']):
-                        result = choose_best_by_key(dirname_compare,
-                                                    files, 'compare')
-                    else:
-                        result = choose_best_by_key(filename_compare,
-                                                    files, 'compare')
-
-                    print "Chosen file: %s" % result
-                    file = result['best']
-                    files.remove(file) # remove the chosen from list
-                    [os.remove(f['original']) for f in files] # delete the list
-                    file = result['best']['original'] # convert back to string
-                else:
-                    file = files[0] # so much easier...
-
-                newname = os.path.join(savedir, filename) + ".srt.TXT"
-                print "Renaming %s to %s" % (file, newname)
-                os.rename(file, newname)
-
-            else:
-                # Are you *sure* this movie exists? Try our interactive mode
-                # and search for yourself. I swear I tried...
-                print "No subtitles found. I give up..."
-
-            break
+    else:
+        # Are you *sure* this movie exists? Try our interactive mode
+        # and search for yourself. I swear I tried...
+        print "No subtitles found. I give up..."
