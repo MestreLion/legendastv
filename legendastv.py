@@ -31,7 +31,6 @@
 # - convert magic numbers to enums / named constants
 # - create decent classes for entities (movies, subtitles, comments)
 # - cache movies and subtitles info to prickle/database
-# - use a config file for settings, including login username and passowrd
 # - re-estructure the methods into html-parsing (private) and task-driven ones
 #   a method for parsing each website page to feed the class/database, used by
 #   the user-oriented "getXxxByXxx()" methods to retrieve and present the data
@@ -675,15 +674,33 @@ if __name__ == "__main__" and login and password:
                 files = extract_archive(archive, savedir, [".srt"])
                 if len(files) > 1:
                     # Damn those multi-file archives!
-                    # TODO: Clean up extracted filenames for a fair compare.
-                    # also, create a function that compares both filename and
-                    # release, let the file score be the higher of them
-                    file = choose_best_string(usermovie, files)['best']
-                    files.remove(file)
-                    [os.remove(f) for f in files]
+
+                    # Build a new list suitable for comparing
+                    files = [dict(compare=clean_string(os.path.basename(
+                                                    os.path.splitext(f)[0])),
+                                  original=f)
+                             for f in files]
+
+                    # Should we use file or dir as a reference?
+                    dirname_compare  = clean_string(dirname)
+                    filename_compare = clean_string(filename)
+                    if get_similarity(dirname_compare , files[0]['compare']) > \
+                       get_similarity(filename_compare, files[0]['compare']):
+                        result = choose_best_by_key(dirname_compare,
+                                                    files, 'compare')
+                    else:
+                        result = choose_best_by_key(filename_compare,
+                                                    files, 'compare')
+
+                    print "Chosen file: %s" % result
+                    file = result['best']
+                    files.remove(file) # remove the chosen from list
+                    [os.remove(f['original']) for f in files] # delete the list
+                    file = result['best']['original'] # convert back to string
                 else:
-                    file = files[0]
-                newname = os.path.join(os.path.expanduser('~'), filename) + ".srt"
+                    file = files[0] # so much easier...
+
+                newname = os.path.join(savedir, filename) + ".srt.TXT"
                 print "Renaming %s to %s" % (file, newname)
                 os.rename(file, newname)
 
