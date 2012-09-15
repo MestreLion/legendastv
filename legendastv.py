@@ -177,6 +177,8 @@ def fields_to_int(dict, *keys):
         dict[key] = int(dict[key])
 
 def get_similarity(text1, text2, ignorecase=True):
+    """ Returns a float in [0,1] range representing the similarity of 2 strings
+    """
     if ignorecase:
         text1 = text1.lower()
         text2 = text2.lower()
@@ -207,9 +209,11 @@ def choose_best_string(reference, candidates, ignorecase=True):
                 similarity = similarity)
 
 def choose_best_by_key(reference, dictlist, key, ignorecase=True):
-    """ Given a reference string and a list of candidate strings, return a dict
-        with the candidate most similar to the reference, its index on the list
-        and the similarity ratio (a float in [0, 1] range)
+    """ Given a reference string and a list of dictionaries, compares each
+        dict key value against the reference, and return a dict with keys:
+        'best' = the dict whose key value was the most similar to reference
+        'index' = the position of the chosen dict in dictlist
+        'similarity' = the similarity ratio between reference and dict[key]
     """
     if ignorecase:
         best = choose_best_string(reference.lower(),
@@ -372,7 +376,7 @@ class LegendasTV(HttpBot):
 
     def getMovies(self, text, type=None):
         """ Given a search text, return a list of dicts with basic movie info:
-            ID, Title, Year, Thumb
+            id, title, year, thumb (relative url for a thumbnail image)
         """
         movies = []
 
@@ -404,6 +408,12 @@ class LegendasTV(HttpBot):
         return movies
 
     def getMovieDetailsById(self, id):
+        """ Returns a dict with additional info about a movie than the ones
+            provided by getMovies(), such as:
+            title_br - movie title in Brazil
+            genre - dict with id, genre, genre_br as defined in constants
+            synopsis - a (usually lame) synopsis of the movie
+        """
         url = "index.php?opcao=buscarlegenda&filme=" + str(id)
         tree = html.parse(self.get(url, self._searchdata("..")))
 
@@ -465,7 +475,19 @@ class LegendasTV(HttpBot):
 
     def getSubtitles(self, text="", type=None, lang=None, movie_id=None,
                        allpages=True):
-        """Either text or movie_id must be provided"""
+        """ Main method for searching, parsing and retrieving subtitles info.
+            Arguments:
+            text - the text to search for
+            type - The type of search that text refers to. An int as defined
+                   in constans representing either Release, Title or User
+            lang - The subtitle language to search for. An int as defined
+                   in constants
+            movie_id - search all subtitles from the specified movie. If used,
+                       text and type (but not lang) are ignored
+            Either text or movie_id must be provided
+            Return a list of dictionaries with the subtitles found. Some info
+            is related to the movie, not to that particular subtitle
+        """
         subtitles = []
 
         url = "index.php?opcao=buscarlegenda"
@@ -546,14 +568,28 @@ class LegendasTV(HttpBot):
         return subtitles
 
     def getSubtitleDetails(self, id):
+        """ Returns a dict with additional info about a subtitle than the ones
+            provided by getSubtitles(), such as:
+            imdb_id, description (html), updates (list), comments (dictlist),
+            votes
+
+        """
         #TODO: Parse it! :)
         return self.get('info.php?d=' + id).read()
         #tree = html.parse(self.get('info.php?d=' + id))
 
-    def downloadSubtitle(self, id, dir, filename=""):
-        return self.download('info.php?c=1&d=' + id, dir, filename)
+    def downloadSubtitle(self, id, dir, basename=""):
+        """ Download a subtitle archive based on subtitle id.
+            Saves the archive as dir/basename, using the basename provided or,
+            if empty, the one returned from the website.
+            Return the filename (with full path) of the downloaded archive
+        """
+        return self.download('info.php?c=1&d=' + id, dir, basename)
 
     def rankSubtitles(self, movie, subtitles):
+        """ Evaluates each subtitle based on wanted movie and give each a score.
+            Return the list sorted by score, greatest first
+        """
         # TODO: Come on, don't be lazy.. rank them! ASAP!
         return subtitles
 
@@ -587,7 +623,7 @@ if __name__ == "__main__" and login and password:
     ]
 
     # User selects a movie...
-    usermovie = os.path.expanduser(examples[2])
+    usermovie = os.path.expanduser(examples[3])
 
     savedir = os.path.dirname(usermovie)
     dirname = os.path.basename(savedir)
@@ -667,7 +703,6 @@ if __name__ == "__main__" and login and password:
         # - "Eww, not even close! Let's try other search options"
         #   (show the search options used, let user edit them, and retry)
 
-        #TODO: Cache the archives so we don't download them over and over...
         archive = legendastv.downloadSubtitle(subtitles[0]['id'], savedir)
         files = extract_archive(archive, savedir, [".srt"])
         if len(files) > 1:
