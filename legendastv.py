@@ -54,6 +54,7 @@ import difflib
 import rarfile
 import zipfile
 import ConfigParser
+import operator
 
 # These factory settings are also available at config file
 login      = ""
@@ -591,7 +592,45 @@ class LegendasTV(HttpBot):
             Return the list sorted by score, greatest first
         """
         # TODO: Come on, don't be lazy.. rank them! ASAP!
-        return subtitles
+        # Idea for a ranking system (points):
+        # 4 - Gold
+        # 1 - Highlight
+        # 2 - Comments (average = 1) **
+        # 5 - Title similarity (if not movie_id, max(title, title_br)
+        # 2 - Release similarity
+        # 1 - rating 10
+        # 5 - 0 or 1 CD
+        # 2 - date (most recent) (average=1) **
+        # 2 - size +-15% (2 for 0/1MB, 0 for wrong)
+        # ** = time-sentitive: must be wheigted by oldest
+
+        def days(d):
+            return (datetime.today() - d).days
+
+        max_comments = max([s['comments'] for s in subtitles])
+        oldest = days(min([s['date'] for s in subtitles]))
+        newest = days(max([s['date'] for s in subtitles]))
+
+        for sub in subtitles:
+            score = 0
+
+            score += 3 * 1 if sub['gold'] else 0
+            score += 1 * 1 if sub['highlight'] else 0
+            score += 2 * get_similarity(movie['release'],
+                                        clean_string(sub['release']))
+            score += 1 * (int(sub['rating'])/10 if sub['rating'].isdigit() else 1)
+            score += 2 * (sub['comments']/max_comments)
+            score += 1 * (1 - ( (days(sub['date'])-newest)/(oldest-newest)
+                                if oldest != newest
+                                else 0 ))
+
+            if max(get_similarity(movie['title'],sub['title']),
+                   get_similarity(movie['title'],sub['title_br'])) < similarity:
+                score = 0
+
+            sub['score'] = score
+
+        return sorted(subtitles, key=operator.itemgetter('score'), reverse=True)
 
 
 _appname = "legendastv"
@@ -690,8 +729,13 @@ if __name__ == "__main__" and login and password:
     if len(subs) > 0:
 
         # Good! Lets choose and download the best subtitle...
+        print movie
         subtitles = legendastv.rankSubtitles(movie, subs)
-        print "Chosen subtitle: %s" % subtitles[0]
+        if debug:
+            print "Chosen subtitle: "
+            for s in subtitles: print s
+        else:
+            print "Chosen subtitle: %s" % subtitles[0]
 
         # UI suggestion: present the user with a single subtitle, and the
         # following message:
