@@ -676,7 +676,11 @@ if __name__ == "__main__" and login and password:
     ]
 
     # User selects a movie...
-    usermovie = os.path.expanduser(examples[3])
+    try:
+        usermovie = sys.argv[1]
+    except:
+        usermovie = os.path.expanduser(examples[0])
+    print usermovie
 
     savedir = os.path.dirname(usermovie)
     dirname = os.path.basename(savedir)
