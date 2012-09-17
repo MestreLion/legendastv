@@ -46,6 +46,7 @@
 import os
 import re
 import sys
+import dbus
 import urllib
 import urllib2
 from lxml import html
@@ -126,6 +127,18 @@ similarity = 0.7
 # 40 - Thriller
 # 39 - Western
 
+
+def notify(summary, body='', app_name='', app_icon='',
+    timeout=5000, actions=[], hints=[], replaces_id=0):
+    _bus_name = 'org.freedesktop.Notifications'
+    _object_path = '/org/freedesktop/Notifications'
+    _interface_name = _bus_name
+
+    session_bus = dbus.SessionBus()
+    obj = session_bus.get_object(_bus_name, _object_path)
+    interface = dbus.Interface(obj, _interface_name)
+    interface.Notify(app_name, replaces_id, app_icon,
+    summary, body, actions, hints, timeout)
 
 def read_config():
     global login, password, debug, cache, similarity
@@ -647,6 +660,7 @@ if __name__ == "__main__" and login and password:
     # scrap area, with a common workflow...
 
     # Log in
+    notify("Logging in Legendas.TV")
     legendastv = LegendasTV(login, password)
 
     examples = [
@@ -678,7 +692,8 @@ if __name__ == "__main__" and login and password:
 
     # Now let's play with that string and try to get some useful info
     movie = guess_movie_info(search)
-    print "Search parameters: %s" % movie
+    notify("Searching movie '%s'" % movie['title'])
+    #print "Search parameters: %s" % movie
 
     # Let's begin with a movie search
     if len(movie['title']) >= 2:
@@ -709,6 +724,8 @@ if __name__ == "__main__" and login and password:
                                     movies,
                                     'search')
         print "Chosen movie: %s" % result
+
+        notify("Found movie '%s' (%s)" % (result['best']['title'], result['best']['year']))
 
         # But... Is it really similar? Maybe results were capped at 10
         if result['similarity'] > similarity or len(movies)<10:
@@ -747,7 +764,10 @@ if __name__ == "__main__" and login and password:
         # - "Eww, not even close! Let's try other search options"
         #   (show the search options used, let user edit them, and retry)
 
+        notify("Downloading '%s' from '%s'" % (subtitles[0]['release'],
+                                               subtitles[0]['user_name']))
         archive = legendastv.downloadSubtitle(subtitles[0]['id'], savedir)
+        notify("Extrating ùga uga uga E! '%s'" % os.path.basename(archive))
         files = extract_archive(archive, savedir, [".srt"])
         if len(files) > 1:
             # Damn those multi-file archives!
@@ -777,11 +797,14 @@ if __name__ == "__main__" and login and password:
         else:
             file = files[0] # so much easier...
 
-        newname = os.path.join(savedir, filename) + ".srt.TXT"
+        newname = os.path.join(savedir, filename) + ".srt"
+        notify("Renaming %s to %s" % (file, newname))
         print "Renaming %s to %s" % (file, newname)
         os.rename(file, newname)
+        notify("Done! Te dóru Rê <3!")
 
     else:
         # Are you *sure* this movie exists? Try our interactive mode
         # and search for yourself. I swear I tried...
+        notify("No subtitles found")
         print "No subtitles found. I give up..."
