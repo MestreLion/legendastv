@@ -307,7 +307,7 @@ def guess_movie_info(text):
             'bluray','bdrip','brrip','dvd','dvdrip','xvid','mp4','itunes',
             'web dl','blu ray']
     for s in tags:
-        title = re.sub(s, "", title, flags=re.IGNORECASE)
+        title = re.sub(s, "", title, re.IGNORECASE)
     title = re.sub(" +", " ", title).strip()
 
     result = dict(year=year, title=title, release=release)
