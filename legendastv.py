@@ -57,12 +57,30 @@ import zipfile
 import ConfigParser
 import operator
 
+_globals = {
+    'appname'   : "legendastv",
+    'apptitle'  : "Legendas.TV",
+    'appicon'   : os.path.join(os.path.dirname(os.path.realpath(__file__)),
+                               "icon.png"),
+    'notifier'  : None,
+}
+_globals.update({
+    'cache_dir' : os.path.join(os.environ.get('XDG_CACHE_HOME') or
+                               os.path.join(os.path.expanduser('~'), '.cache'),
+                               _globals['appname']),
+    'config_dir': os.path.join(os.environ.get('XDG_CONFIG_HOME') or
+                               os.path.join(os.path.expanduser('~'), '.config'),
+                               _globals['appname']),
+    'notify_icon': _globals['appicon']
+})
+
 # These factory settings are also available at config file
 login      = ""
 password   = ""
 debug      = True
-cache      = False
+cache      = True
 similarity = 0.7
+notifications = True
 
 
 # Languages [and flag names (country "codes")]:
@@ -127,28 +145,49 @@ similarity = 0.7
 # 40 - Thriller
 # 39 - Western
 
+def notify(body, summary='', icon=''):
 
-def notify(summary, body='', app_name='', app_icon='',
-    timeout=5000, actions=[], hints=[], replaces_id=0):
-    _bus_name = 'org.freedesktop.Notifications'
-    _object_path = '/org/freedesktop/Notifications'
-    _interface_name = _bus_name
+    # Fallback for no notifications
+    if not notifications:
+        print "%s - %s" % (summary, body)
+        return
 
-    session_bus = dbus.SessionBus()
-    obj = session_bus.get_object(_bus_name, _object_path)
-    interface = dbus.Interface(obj, _interface_name)
-    interface.Notify(app_name, replaces_id, app_icon,
-    summary, body, actions, hints, timeout)
+    # Use the same interface object in all calls
+    if not _globals['notifier']:
+        _bus_name = 'org.freedesktop.Notifications'
+        _bus_path = '/org/freedesktop/Notifications'
+        _bus_obj  = dbus.SessionBus().get_object(_bus_name, _bus_path)
+        _globals['notifier'] = dbus.Interface(_bus_obj, _bus_name)
+
+    app_name    = _globals['apptitle']
+    replaces_id = 0
+    summary     = summary or app_name
+    actions     = []
+    hints       = {'x-canonical-append': "" }  # merge if same summary
+    timeout     = -1 # server default
+
+    if icon and os.path.exists(icon):
+        _globals['notify_icon'] = icon # save for later
+    app_icon    = _globals['notify_icon']
+
+    _globals['notifier'].Notify(app_name, replaces_id, app_icon, summary, body,
+                                actions, hints, timeout)
+    print_debug("Notification: %s" % body)
+
+def print_debug(text):
+    if not debug: return
+    print "%s\t%s" % (datetime.today(), '\n\t'.join(text.split('\n')))
 
 def read_config():
     global login, password, debug, cache, similarity
 
     cp = ConfigParser.SafeConfigParser()
-    config_file = os.path.join(_config_dir, _appname + ".ini")
+    config_file = os.path.join(_globals['config_dir'],
+                               _globals['appname'] + ".ini")
 
     if not os.path.exists(config_file):
-        if not os.path.isdir(_config_dir):
-            os.makedirs(_config_dir)
+        if not os.path.isdir(_globals['config_dir']):
+            os.makedirs(_globals['config_dir'])
         cp.add_section("Preferences")
         cp.set("Preferences", "login"     , str(login))
         cp.set("Preferences", "password"  , str(password))
@@ -237,8 +276,10 @@ def choose_best_by_key(reference, dictlist, key, ignorecase=True):
         best = choose_best_string(reference, [d[key] for d in dictlist], False)
 
 
-    return dict(best = dictlist[best['index']],
-                similarity = best['similarity'])
+    result = dict(best = dictlist[best['index']],
+                  similarity = best['similarity'])
+    print_debug("Chosen best for '%s' in '%s': %s" % (reference, key, result))
+    return result
 
 def clean_string(text):
     text = re.sub(r"^\[.+?]"   ,"",text)
@@ -269,7 +310,21 @@ def guess_movie_info(text):
         title = re.sub(s, "", title, flags=re.IGNORECASE)
     title = re.sub(" +", " ", title).strip()
 
-    return dict(original=text, year=year, title=title, release=release)
+    result = dict(year=year, title=title, release=release)
+    print_debug("Guessed title info: '%s' -> %s" % (text, result))
+    return result
+
+def filter_dict(dict, keys=[], whitelist=True):
+    if keys:
+        if whitelist:
+            return dict([(k, v) for (k, v) in dict.items() if k in keys])
+        else:
+            return dict([(k, v) for (k, v) in dict.items() if k not in keys])
+    else:
+        return dict
+
+def print_dictlist(dictlist, keys=None, whitelist=True):
+    return "\n".join([str(filter_dict(d, keys, whitelist)) for d in dictlist])
 
 def extract_archive(archive, dir=None, extlist=[], keep=False):
     """ Extract files from a zip or rar archive whose filename extension
@@ -282,23 +337,23 @@ def extract_archive(archive, dir=None, extlist=[], keep=False):
     if not (dir and os.path.isdir(os.path.expanduser(dir))):
         dir = os.path.dirname(archive)
 
-    extractedfiles = []
+    files = []
     af = ArchiveFile(archive)
     for f in af.infolist():
         if not extlist or os.path.splitext(f.filename)[1].lower() in extlist:
-            if debug: print "Extracting " + f.filename
-
             outfile = os.path.expanduser(os.path.join(dir, f.filename))
             with open(outfile, 'wb') as output:
                 output.write(af.read(f))
-                extractedfiles.append(outfile)
+                files.append(outfile)
 
     try:
         if not keep: os.remove(archive)
     except:
         pass # who cares?
 
-    return extractedfiles
+    print_debug("Extracted archive '%s' (%s)\n%s" % (archive, extlist,
+                                                    print_dictlist(files)))
+    return files
 
 def ArchiveFile(filename):
     """ Pseudo class (hence the Case) to wrap both rar and zip handling,
@@ -360,20 +415,20 @@ class HttpBot(object):
         return filename
 
     def cache(self, url):
-        filename = os.path.join(_cache_dir, os.path.basename(url))
+        filename = os.path.join(_globals['cache_dir'], os.path.basename(url))
         if os.path.exists(filename):
             return True
         else:
-            return (self.download(url, _cache_dir))
+            return (self.download(url, _globals['cache_dir']))
 
 
 class LegendasTV(HttpBot):
 
     def __init__(self, username, password):
         super(LegendasTV, self).__init__("http://legendas.tv/")
-        self.get("login_verificar.php",
-                 {'txtLogin': username,
-                  'txtSenha': password})
+        url = "login_verificar.php"
+        print_debug("Logging into %s as %s" % (self.base_url + url, username))
+        self.get(url, {'txtLogin': username, 'txtSenha': password})
 
     def _searchdata(self, text, type=None, lang=None):
         """ Helper for the website's search form. Return a dict suitable for
@@ -418,7 +473,8 @@ class LegendasTV(HttpBot):
             if cache: self.cache(movie['thumb'])
             movies.append(movie)
 
-        if debug: print str(len(movies)) + " movies found"
+        print_debug("Titles found for '%s':\n%s" % (text,
+                                                    print_dictlist(movies)))
         return movies
 
     def getMovieDetailsById(self, id):
@@ -578,7 +634,8 @@ class LegendasTV(HttpBot):
                 else:
                     lastpage = True
 
-        if debug: print str(len(subtitles)) + " subtitles found"
+        print_debug("Subtitles found for %s:\n%s" %
+                   ( movie_id or "'%s'" % text, print_dictlist(subtitles)))
         return subtitles
 
     def getSubtitleDetails(self, id):
@@ -643,16 +700,12 @@ class LegendasTV(HttpBot):
 
             sub['score'] = score
 
-        return sorted(subtitles, key=operator.itemgetter('score'), reverse=True)
+        result = sorted(subtitles, key=operator.itemgetter('score'),reverse=True)
+        print_debug("Ranked subtitles for %s:\n%s" % (movie,
+                                                      print_dictlist(result)))
+        return result
 
 
-_appname = "legendastv"
-_cache_dir = os.path.join(os.environ.get('XDG_CACHE_HOME') or
-                          os.path.join(os.path.expanduser('~'), '.cache'),
-                          _appname)
-_config_dir = os.path.join(os.environ.get('XDG_CONFIG_HOME') or
-                           os.path.join(os.path.expanduser('~'), '.config'),
-                           _appname)
 read_config()
 
 if __name__ == "__main__" and login and password:
@@ -679,8 +732,8 @@ if __name__ == "__main__" and login and password:
     try:
         usermovie = sys.argv[1]
     except:
-        usermovie = os.path.expanduser(examples[0])
-    print usermovie
+        usermovie = os.path.expanduser(examples[1])
+    print_debug("Target: %s" % usermovie)
 
     savedir = os.path.dirname(usermovie)
     dirname = os.path.basename(savedir)
@@ -696,8 +749,7 @@ if __name__ == "__main__" and login and password:
 
     # Now let's play with that string and try to get some useful info
     movie = guess_movie_info(search)
-    notify("Searching movie '%s'" % movie['title'])
-    #print "Search parameters: %s" % movie
+    notify("Searching for '%s'" % movie['title'])
 
     # Let's begin with a movie search
     if len(movie['title']) >= 2:
@@ -710,9 +762,8 @@ if __name__ == "__main__" and login and password:
                                                  movie['year']), 2)
 
     if len(movies) > 0:
-
         # Nice! Lets pick the best movie...
-
+        notify("%s titles found" % len(movies))
         for m in movies:
             # Fist, clean up title...
             title = clean_string(m['title'])
@@ -727,36 +778,34 @@ if __name__ == "__main__" and login and password:
                                                movie['year']),
                                     movies,
                                     'search')
-        print "Chosen movie: %s" % result
-
-        notify("Found movie '%s' (%s)" % (result['best']['title'], result['best']['year']))
 
         # But... Is it really similar? Maybe results were capped at 10
         if result['similarity'] > similarity or len(movies)<10:
             movie.update(result['best'])
+            notify("Searching title '%s' (%s)" % (result['best']['title'],
+                                                  result['best']['year']),
+                   icon=os.path.join(_globals['cache_dir'],
+                                     os.path.basename(result['best']['thumb'])))
             subs = legendastv.getSubtitlesByMovie(movie)
 
         else:
             # Almost giving up... forget movie matching
-            print "Not similar enough. Retrying..."
+            notify("None was similar enough. Trying release...")
             subs = legendastv.getSubtitlesByText("%s %s" %
                                                  (movie['title'],
                                                   movie['year']), 1)
 
     else:
         # Ok, let's try by release...
+        notify("No titles found. Trying release...")
         subs = legendastv.getSubtitlesByText(movie['title'], 1)
 
     if len(subs) > 0:
 
         # Good! Lets choose and download the best subtitle...
-        print movie
+        notify("%s subtitles found" % len(subs))
+
         subtitles = legendastv.rankSubtitles(movie, subs)
-        if debug:
-            print "Chosen subtitle: "
-            for s in subtitles: print s
-        else:
-            print "Chosen subtitle: %s" % subtitles[0]
 
         # UI suggestion: present the user with a single subtitle, and the
         # following message:
@@ -771,10 +820,10 @@ if __name__ == "__main__" and login and password:
         notify("Downloading '%s' from '%s'" % (subtitles[0]['release'],
                                                subtitles[0]['user_name']))
         archive = legendastv.downloadSubtitle(subtitles[0]['id'], savedir)
-        notify("Extrating ùga uga uga E! '%s'" % os.path.basename(archive))
         files = extract_archive(archive, savedir, [".srt"])
         if len(files) > 1:
             # Damn those multi-file archives!
+            notify("%s subtitles in archive" % len(files))
 
             # Build a new list suitable for comparing
             files = [dict(compare=clean_string(os.path.basename(
@@ -793,7 +842,6 @@ if __name__ == "__main__" and login and password:
                 result = choose_best_by_key(filename_compare,
                                             files, 'compare')
 
-            print "Chosen file: %s" % result
             file = result['best']
             files.remove(file) # remove the chosen from list
             [os.remove(f['original']) for f in files] # delete the list
@@ -802,13 +850,11 @@ if __name__ == "__main__" and login and password:
             file = files[0] # so much easier...
 
         newname = os.path.join(savedir, filename) + ".srt"
-        notify("Renaming %s to %s" % (file, newname))
-        print "Renaming %s to %s" % (file, newname)
+        notify("Matching '%s'" % os.path.basename(file))
         os.rename(file, newname)
-        notify("Done! Te dóru Rê <3!")
+        notify("Done!")
 
     else:
         # Are you *sure* this movie exists? Try our interactive mode
         # and search for yourself. I swear I tried...
         notify("No subtitles found")
-        print "No subtitles found. I give up..."
