@@ -315,6 +315,9 @@ def guess_movie_info(text):
     return result
 
 def filter_dict(dict, keys=[], whitelist=True):
+    """ Filter a dict, returning a copy with only the selected keys
+        (or all *but* the selected keys, if not whitelist)
+    """
     if keys:
         if whitelist:
             return dict([(k, v) for (k, v) in dict.items() if k in keys])
@@ -324,6 +327,7 @@ def filter_dict(dict, keys=[], whitelist=True):
         return dict
 
 def print_dictlist(dictlist, keys=None, whitelist=True):
+    """ Prints a list, an item per line """
     return "\n".join([str(filter_dict(d, keys, whitelist)) for d in dictlist])
 
 def extract_archive(archive, dir=None, extlist=[], keep=False):
@@ -369,14 +373,9 @@ def ArchiveFile(filename):
     else:
         return None
 
-class Movie(object):
-    def __init__(self, id, **kw):
-        self.id = id
-        for k, v in kw.iteritems(): setattr(self, k, v)
-
 class HttpBot(object):
     """ Base class for other handling basic http tasks like requesting a page,
-        download a file and cache content
+        download a file and cache content. Not to be used directly
     """
     def __init__(self, base_url=""):
         self._opener = urllib2.build_opener(urllib2.HTTPCookieProcessor())
@@ -451,7 +450,6 @@ class LegendasTV(HttpBot):
 
         tree = html.parse(self.get("index.php?opcao=buscarlegenda",
                                    self._searchdata(text, type)))
-        #tree = html.parse(open("filmes.html"))
 
         #<table width="400" border="0" cellpadding="0" cellspacing="0" class="filmresult">
         #<tr>
@@ -643,7 +641,6 @@ class LegendasTV(HttpBot):
             provided by getSubtitles(), such as:
             imdb_id, description (html), updates (list), comments (dictlist),
             votes
-
         """
         #TODO: Parse it! :)
         return self.get('info.php?d=' + id).read()
@@ -655,23 +652,18 @@ class LegendasTV(HttpBot):
             if empty, the one returned from the website.
             Return the filename (with full path) of the downloaded archive
         """
-        return self.download('info.php?c=1&d=' + id, dir, basename)
+        print_debug("Downloading archive for subtitle '%s'" % id)
+        result = self.download('info.php?c=1&d=' + id, dir, basename)
+        print_debug("Archive saved as '%s'" % (result))
+        return result
 
     def rankSubtitles(self, movie, subtitles):
         """ Evaluates each subtitle based on wanted movie and give each a score.
             Return the list sorted by score, greatest first
         """
-        # TODO: Come on, don't be lazy.. rank them! ASAP!
-        # Idea for a ranking system (points):
-        # 4 - Gold
-        # 1 - Highlight
-        # 2 - Comments (average = 1) **
-        # 5 - Title similarity (if not movie_id, max(title, title_br)
-        # 2 - Release similarity
-        # 1 - rating 10
-        # 5 - 0 or 1 CD
-        # 2 - date (most recent) (average=1) **
-        # 2 - size +-15% (2 for 0/1MB, 0 for wrong)
+        # Idea for a improvements on ranking system (points):
+        # 2 - Number of CDs (1 for 0, 2 for exact, 0 for wrong)
+        # 2 - Size +-15% (1 for 0/1MB, 0 for wrong)
         # ** = time-sentitive: must be wheigted by oldest
 
         def days(d):
