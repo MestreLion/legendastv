@@ -475,6 +475,9 @@ class LegendasTV(HttpBot):
                                                     print_dictlist(movies)))
         return movies
 
+    def getMovieDetails(self, movie):
+        return self.getMovieDetailsById(movie['id'])
+
     def getMovieDetailsById(self, id):
         """ Returns a dict with additional info about a movie than the ones
             provided by getMovies(), such as:
@@ -506,11 +509,21 @@ class LegendasTV(HttpBot):
         #    </div></td>
         #</tr>
         #</table>
-        e = tree.xpath(".//table[@class='filmresult']")[0]
+        e = tree.xpath(".//table[@class='filmresult']")[-1]
         data = e.xpath(".//text()")
+        movie = dict(
+            id          = id,
+            title       = data[ 2].strip(),
+            year        = data[ 3],
+            title_br    = data[ 6].strip(),
+            genre       = data[ 9].strip(),
+            synopsis    = data[12].strip(),
+            thumb       = e.xpath(".//img")[0].attrib['src']
+        )
+        movie['year'] = int(clean_string(movie['year']))
 
-        #TODO: Looking good, now parse it! :)
-        return data
+        print_debug("Details for title %s: %s" % (id, movie))
+        return movie
 
     """ Convenience wrappers for the main getSubtitles method """
 
