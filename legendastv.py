@@ -754,38 +754,16 @@ class LegendasTV(HttpBot):
                                                       print_dictlist(result)))
         return result
 
-
-read_config()
-
-if __name__ == "__main__" and login and password:
-
-    # scrap area, with a common workflow...
+def retrieve_subtitle_for_movie(usermovie):
+    """ Main function to find, download, extract and match a subtitle for a
+        selected file
+    """
 
     # Log in
     notify("Logging in Legendas.TV")
     legendastv = LegendasTV(login, password)
 
-    examples = [
-        "~/Videos/Encouraçado Potemkin+/"
-            "The Battleship Potemkin (Sergei M. Eisenstein, 1925).avi",
-        "~/Videos/Dancer.In.The.Dark.[2000].DVDRip.XviD-BLiTZKRiEG.avi",
-        "~/Videos/The.Raven.2012.720p.BluRay.x264-iNFAMOUS[EtHD]/"
-            "inf-raven720p.mkv",
-        "~/Videos/[ UsaBit.com ] - J.Edgar.2011.720p.BluRay.x264-SPARKS/"
-            "sparks-jedgar-720.mkv",
-        "~/Videos/Thor.2011.720p.BluRay.x264-Felony/f-thor.720.mkv",
-        "~/Videos/Universal Soldier-720p MP4 AAC x264 BRRip 1992-CC/"
-            "Universal Soldier-720p MP4 AAC x264 BRRip 1992-CC.mp4",
-        "~/Videos/2012 2009 BluRay 720p DTS x264-3Li/2012 2009 3Li BluRay.mkv",
-    ]
-
-    # User selects a movie...
-    try:
-        usermovie = unicode(sys.argv[1], "utf-8")
-    except:
-        usermovie = os.path.expanduser(examples[0])
     print_debug("Target: %s" % usermovie)
-
     savedir = os.path.dirname(usermovie)
     dirname = os.path.basename(savedir)
     filename = os.path.splitext(os.path.basename(usermovie))[0]
@@ -904,8 +882,32 @@ if __name__ == "__main__" and login and password:
         notify("Matching '%s'" % os.path.basename(file))
         os.rename(file, newname)
         notify("DONE!")
+        return True
 
     else:
         # Are you *sure* this movie exists? Try our interactive mode
         # and search for yourself. I swear I tried...
         notify("No subtitles found")
+        return False
+
+
+read_config()
+
+if __name__ == "__main__" and login and password:
+
+    # scrap area, for tests
+
+    # User selects a movie by filename...
+    try:
+        usermovie = unicode(sys.argv[1], "utf-8")
+    except:
+        usermovie = os.path.expanduser("")
+
+    if usermovie:
+        retrieve_subtitle_for_movie(usermovie)
+
+    # API tests
+    search = "gattaca"
+    ltv = LegendasTV(login, password)
+    ltv.getMovieDetails(ltv.getMovies(search)[0])
+    ltv.getSubtitleDetails(ltv.getSubtitlesByText(search)[0]['hash'])
