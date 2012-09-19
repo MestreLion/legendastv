@@ -189,7 +189,7 @@ def read_config():
         if not os.path.isdir(_globals['config_dir']):
             os.makedirs(_globals['config_dir'])
         cp.add_section("Preferences")
-        cp.set("Preferences", "login"     , str(login))
+        cp.set("Preferences", "login"     , str(login)) #FIXME: unicode!
         cp.set("Preferences", "password"  , str(password))
         cp.set("Preferences", "debug"     , str(debug))
         cp.set("Preferences", "cache"     , str(cache))
@@ -283,7 +283,7 @@ def choose_best_by_key(reference, dictlist, key, ignorecase=True):
 
 def clean_string(text):
     text = re.sub(r"^\[.+?]"   ,"",text)
-    text = re.sub(r"[][}{)(._-]"," ",text)
+    text = re.sub(r"[][}{)(.,:_-]"," ",text)
     text = re.sub(r" +"       ," ",text).strip()
     return text
 
@@ -328,7 +328,8 @@ def filter_dict(dict, keys=[], whitelist=True):
 
 def print_dictlist(dictlist, keys=None, whitelist=True):
     """ Prints a list, an item per line """
-    return "\n".join([str(filter_dict(d, keys, whitelist)) for d in dictlist])
+    return "\n".join([repr(filter_dict(d, keys, whitelist))
+                      for d in dictlist])
 
 def extract_archive(archive, dir=None, extlist=[], keep=False):
     """ Extract files from a zip or rar archive whose filename extension
@@ -602,7 +603,7 @@ class LegendasTV(HttpBot):
             #</span>
             for e in tree.xpath(".//*[@id='conteudodest']/*/span"):
                 data = e.xpath(".//text()")
-                text = html.tostring(e)
+                htmltext = html.tostring(e)
                 sub = {}
                 sub.update(dict(
                     title       = data[ 1],
@@ -614,13 +615,13 @@ class LegendasTV(HttpBot):
                     user_name   = data[12],
                     release     = data[16],
                 ))
-                sub.update(re.search(self._re_sub_text, text).groupdict())
+                sub.update(re.search(self._re_sub_text, htmltext).groupdict())
                 fields_to_int(sub, 'downloads', 'comments', 'cds',
                                    'fps', 'size', 'user_id')
                 sub['language'] = re.search(self._re_sub_language,
                                             sub['flag']).group(1)
-                sub['gold'] = ("images/gold.gif" in text)
-                sub['highlight'] = ("buscaDestaque" in text)
+                sub['gold'] = ("images/gold.gif" in htmltext)
+                sub['highlight'] = ("buscaDestaque" in htmltext)
                 sub['date'] = datetime.strptime(sub['date'], '%d/%m/%Y - %H:%M')
                 if sub['release'].startswith("(p)"):
                     sub['release'] = sub['release'][3:]
@@ -732,21 +733,20 @@ class LegendasTV(HttpBot):
         for sub in subtitles:
             score = 0
 
+            score +=10 * max(get_similarity(movie['title'],sub['title']),
+                             get_similarity(movie['title'],sub['title_br']))
             score += 3 * 1 if sub['gold'] else 0
             score += 1 * 1 if sub['highlight'] else 0
             score += 2 * get_similarity(movie['release'],
                                         clean_string(sub['release']))
-            score += 1 * (int(sub['rating'])/10 if sub['rating'].isdigit() else 1)
+            score += 1 * (int(sub['rating'])/10 if sub['rating'].isdigit()
+                                                else 1)
             score += 2 * (sub['comments']/max_comments)
             score += 1 * (1 - ( (days(sub['date'])-newest)/(oldest-newest)
                                 if oldest != newest
                                 else 0 ))
 
-            if max(get_similarity(movie['title'],sub['title']),
-                   get_similarity(movie['title'],sub['title_br'])) < similarity:
-                score = 0
-
-            sub['score'] = score
+            sub['score'] = 10 * score / 20
 
         result = sorted(subtitles, key=operator.itemgetter('score'),reverse=True)
         print_debug("Ranked subtitles for %s:\n%s" % (movie,
@@ -765,6 +765,8 @@ if __name__ == "__main__" and login and password:
     legendastv = LegendasTV(login, password)
 
     examples = [
+        "~/Videos/Encouraçado Potemkin+/"
+            "The Battleship Potemkin (Sergei M. Eisenstein, 1925).avi",
         "~/Videos/Dancer.In.The.Dark.[2000].DVDRip.XviD-BLiTZKRiEG.avi",
         "~/Videos/The.Raven.2012.720p.BluRay.x264-iNFAMOUS[EtHD]/"
             "inf-raven720p.mkv",
@@ -778,9 +780,9 @@ if __name__ == "__main__" and login and password:
 
     # User selects a movie...
     try:
-        usermovie = sys.argv[1]
+        usermovie = unicode(sys.argv[1], "utf-8")
     except:
-        usermovie = os.path.expanduser(examples[1])
+        usermovie = os.path.expanduser(examples[0])
     print_debug("Target: %s" % usermovie)
 
     savedir = os.path.dirname(usermovie)
@@ -900,7 +902,7 @@ if __name__ == "__main__" and login and password:
         newname = os.path.join(savedir, filename) + ".srt"
         notify("Matching '%s'" % os.path.basename(file))
         os.rename(file, newname)
-        notify("Done!")
+        notify("DONE!")
 
     else:
         # Are you *sure* this movie exists? Try our interactive mode
