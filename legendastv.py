@@ -551,7 +551,7 @@ class LegendasTV(HttpBot):
         '(?P<downloads>.*)',.*
         src=\\'(?P<flag>[^']+)\\'.*,
         '(?P<date>.*)'\)\).*
-        abredown\('(?P<id>\w+)'\).*
+        abredown\('(?P<hash>\w+)'\).*
         abreinfousuario\((?P<user_id>\d+)\)""",
         re.VERBOSE + re.DOTALL)
 
@@ -650,7 +650,7 @@ class LegendasTV(HttpBot):
                    ( movie_id or "'%s'" % text, print_dictlist(subtitles)))
         return subtitles
 
-    def getSubtitleDetails(self, id):
+    def getSubtitleDetails(self, hash):
         """ Returns a dict with additional info about a subtitle than the ones
             provided by getSubtitles(), such as:
             imdb_url, description (html), updates (list), votes
@@ -658,7 +658,7 @@ class LegendasTV(HttpBot):
             that particular subtitle
         """
         sub = {}
-        tree = html.parse(self.get('info.php?d=' + id))
+        tree = html.parse(self.get('info.php?d=' + hash))
 
         sub['imdb_url'] = tree.xpath("//a[@class='titulofilme']")
         if len(sub['imdb_url']):
@@ -694,23 +694,24 @@ class LegendasTV(HttpBot):
             votes       = info_from_list(data, "Votos:"),
             user_name   = info_from_list(data, "Enviada por:"),
             date        = info_from_list(data, "Em:"),
+            id          = info_from_list(data, "idl =")[:-1],
         ))
         sub['date'] = datetime.strptime(sub['date'], '%d/%m/%Y - %H:%M')
 
-        fields_to_int(sub, 'year', 'downloads', 'comments', 'cds', 'fps',
+        fields_to_int(sub, 'id', 'year', 'downloads', 'comments', 'cds', 'fps',
                            'size', 'votes')
 
-        print_debug("Details for subtitle '%s': %s" % (id, sub))
+        print_debug("Details for subtitle '%s': %s" % (hash, sub))
         return sub
 
-    def downloadSubtitle(self, id, dir, basename=""):
+    def downloadSubtitle(self, hash, dir, basename=""):
         """ Download a subtitle archive based on subtitle id.
             Saves the archive as dir/basename, using the basename provided or,
             if empty, the one returned from the website.
             Return the filename (with full path) of the downloaded archive
         """
-        print_debug("Downloading archive for subtitle '%s'" % id)
-        result = self.download('info.php?c=1&d=' + id, dir, basename)
+        print_debug("Downloading archive for subtitle '%s'" % hash)
+        result = self.download('info.php?c=1&d=' + hash, dir, basename)
         print_debug("Archive saved as '%s'" % (result))
         return result
 
@@ -869,7 +870,7 @@ if __name__ == "__main__" and login and password:
 
         notify("Downloading '%s' from '%s'" % (subtitles[0]['release'],
                                                subtitles[0]['user_name']))
-        archive = legendastv.downloadSubtitle(subtitles[0]['id'], savedir)
+        archive = legendastv.downloadSubtitle(subtitles[0]['hash'], savedir)
         files = extract_archive(archive, savedir, [".srt"])
         if len(files) > 1:
             # Damn those multi-file archives!
