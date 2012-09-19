@@ -83,7 +83,7 @@ similarity = 0.7
 notifications = True
 
 
-# Languages [and flag names (country "codes")]:
+# Languages [and flag names (language "codes")]:
 #  1 * Português-BR (Brazilian Portuguese) [br]
 #  2 * Inglês (English) [us]
 #  3 * Espanhol (Spanish) [es]
@@ -539,7 +539,7 @@ class LegendasTV(HttpBot):
         return self.getSubtitles(text=text, type=type,
                                  lang=lang, allpages=allpages)
 
-    _re_sub_country = re.compile(r"flag_(\w+)\.")
+    _re_sub_language = re.compile(r"flag_(\w+)\.")
     _re_sub_text = re.compile(r"""gpop\(.*
         #'(?P<title>.*)',
         #'(?P<title_br>.*)',
@@ -617,8 +617,8 @@ class LegendasTV(HttpBot):
                 sub.update(re.search(self._re_sub_text, text).groupdict())
                 fields_to_int(sub, 'downloads', 'comments', 'cds',
                                    'fps', 'size', 'user_id')
-                sub['country'] = re.search(self._re_sub_country,
-                                           sub['flag']).group(1)
+                sub['language'] = re.search(self._re_sub_language,
+                                            sub['flag']).group(1)
                 sub['gold'] = ("images/gold.gif" in text)
                 sub['highlight'] = ("buscaDestaque" in text)
                 sub['date'] = datetime.strptime(sub['date'], '%d/%m/%Y - %H:%M')
