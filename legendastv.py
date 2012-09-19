@@ -40,7 +40,8 @@
 # - Gtk GUI for interactive mode
 # - Research Filebot, FlexGet, and others, to see what interface is expected for
 #   a subtitle plugin
-# - Make a Windows/OSX port possible: cache and config dirs, unrar lib
+# - Make a Windows/OSX port possible: cache and config dirs, unrar lib,
+#   notifications
 # - Create a suitable workflow for TV Series (seasons, episodes)
 
 import os
@@ -691,6 +692,7 @@ class LegendasTV(HttpBot):
             size        = data[data.index("Tamanho:") + 1][:-2],
             downloads   = data[data.index("Downloads:") + 1],
             comments    = data[data.index("Comentários:") + 1],
+            rating      = info_from_list(data, "Nota:").split("/")[0].strip(),
             votes       = info_from_list(data, "Votos:"),
             user_name   = info_from_list(data, "Enviada por:"),
             date        = info_from_list(data, "Em:"),
@@ -722,7 +724,6 @@ class LegendasTV(HttpBot):
         # Idea for a improvements on ranking system (points):
         # 2 - Number of CDs (1 for 0, 2 for exact, 0 for wrong)
         # 2 - Size +-15% (1 for 0/1MB, 0 for wrong)
-        # ** = time-sentitive: must be wheigted by oldest
 
         def days(d):
             return (datetime.today() - d).days
@@ -734,22 +735,23 @@ class LegendasTV(HttpBot):
         for sub in subtitles:
             score = 0
 
-            score +=10 * max(get_similarity(movie['title'],sub['title']),
-                             get_similarity(movie['title'],sub['title_br']))
-            score += 3 * 1 if sub['gold'] else 0
-            score += 1 * 1 if sub['highlight'] else 0
-            score += 2 * get_similarity(movie['release'],
-                                        clean_string(sub['release']))
-            score += 1 * (int(sub['rating'])/10 if sub['rating'].isdigit()
-                                                else 1)
-            score += 2 * (sub['comments']/max_comments)
-            score += 1 * (1 - ( (days(sub['date'])-newest)/(oldest-newest)
-                                if oldest != newest
-                                else 0 ))
+            score += 10 * max(get_similarity(movie['title'],sub['title']),
+                              get_similarity(movie['title'],sub['title_br']))
+            score +=  3 * 1 if sub['gold'] else 0
+            score +=  1 * 1 if sub['highlight'] else 0
+            score +=  2 * get_similarity(movie['release'],
+                                         clean_string(sub['release']))
+            score +=  1 * (int(sub['rating'])/10 if sub['rating'].isdigit()
+                                                 else 1)
+            score +=  2 * (sub['comments']/max_comments)
+            score +=  1 * (1 - ( (days(sub['date'])-newest)/(oldest-newest)
+                                 if oldest != newest
+                                 else 0 ))
 
             sub['score'] = 10 * score / 20
 
-        result = sorted(subtitles, key=operator.itemgetter('score'),reverse=True)
+        result = sorted(subtitles, key=operator.itemgetter('score'),
+                        reverse=True)
         print_debug("Ranked subtitles for %s:\n%s" % (movie,
                                                       print_dictlist(result)))
         return result
