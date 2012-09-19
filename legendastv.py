@@ -652,12 +652,55 @@ class LegendasTV(HttpBot):
     def getSubtitleDetails(self, id):
         """ Returns a dict with additional info about a subtitle than the ones
             provided by getSubtitles(), such as:
-            imdb_id, description (html), updates (list), comments (dictlist),
-            votes
+            imdb_url, description (html), updates (list), votes
+            As with getSubtitles(), some info are related to the movie, not to
+            that particular subtitle
         """
-        #TODO: Parse it! :)
-        return self.get('info.php?d=' + id).read()
-        #tree = html.parse(self.get('info.php?d=' + id))
+        sub = {}
+        tree = html.parse(self.get('info.php?d=' + id))
+
+        sub['imdb_url'] = tree.xpath("//a[@class='titulofilme']")
+        if len(sub['imdb_url']):
+            sub['imdb_url'] = sub['imdb_url'][0].attrib['href']
+
+        sub['synopsis'] = " ".join(
+            [t.strip() for t in tree.xpath("//span[@class='sinopse']//text()")])
+
+        sub['description'] = tree.xpath("//div[@id='descricao']")
+        if sub['description']:
+            sub['description'] = sub['description'][0].text + \
+                                 "".join([html.tostring(l)
+                                          for l in sub['description'][0]]) + \
+                                 sub['description'][0].tail.strip()
+
+        def info_from_list(datalist, text):
+            return "".join([d for d in datalist
+                            if d.strip().startswith(text)]
+                           ).split(text)[-1].strip()
+
+        data = [t.strip() for t in tree.xpath("//table//text()") if t.strip()]
+        sub.update(re.search(self._re_movie_text, data[0]).groupdict())
+        sub.update(dict(
+            title       = data[data.index("Título Original:") + 1],
+            title_br    = data[data.index("Título Nacional:") + 1],
+            release     = data[data.index("Rls:") + 1],
+            language    = data[data.index("Idioma:") + 1],
+            fps         = data[data.index("FPS:") + 1],
+            cds         = data[data.index("CDs:") + 1],
+            size        = data[data.index("Tamanho:") + 1][:-2],
+            downloads   = data[data.index("Downloads:") + 1],
+            comments    = data[data.index("Comentários:") + 1],
+            votes       = info_from_list(data, "Votos:"),
+            user_name   = info_from_list(data, "Enviada por:"),
+            date        = info_from_list(data, "Em:"),
+        ))
+        sub['date'] = datetime.strptime(sub['date'], '%d/%m/%Y - %H:%M')
+
+        fields_to_int(sub, 'year', 'downloads', 'comments', 'cds', 'fps',
+                           'size', 'votes')
+
+        print_debug("Details for subtitle '%s': %s" % (id, sub))
+        return sub
 
     def downloadSubtitle(self, id, dir, basename=""):
         """ Download a subtitle archive based on subtitle id.
