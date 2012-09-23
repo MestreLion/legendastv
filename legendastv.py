@@ -83,7 +83,6 @@ cache      = True
 similarity = 0.7
 notifications = True
 
-
 # Languages [and flag names (language "codes")]:
 #  1 * Português-BR (Brazilian Portuguese) [br]
 #  2 * Inglês (English) [us]
@@ -206,7 +205,6 @@ def read_config():
         return
 
     cp.read(config_file)
-
 
     if cp.has_section("Preferences"):
         try:
@@ -765,6 +763,7 @@ def retrieve_subtitle_for_movie(usermovie):
     notify("Logging in Legendas.TV")
     legendastv = LegendasTV(login, password)
 
+    usermovie = os.path.abspath(usermovie)
     print_debug("Target: %s" % usermovie)
     savedir = os.path.dirname(usermovie)
     dirname = os.path.basename(savedir)
@@ -883,7 +882,7 @@ def retrieve_subtitle_for_movie(usermovie):
         newname = os.path.join(savedir, filename) + ".srt"
         notify("Matching '%s'" % os.path.basename(file))
         os.rename(file, newname)
-        notify("DONE!")
+        notify("DONE! Oba Rê!!")
         return True
 
     else:
@@ -903,10 +902,15 @@ if __name__ == "__main__" and login and password:
     try:
         usermovie = unicode(sys.argv[1], "utf-8")
     except:
-        usermovie = os.path.expanduser("")
+        usermovie = os.path.expanduser("~/Videos/The Kings.Speech.2010.DVDSCR.XviD.AC3-NYDIC/"
+                                       "The Kings.Speech.2010.DVDSCR.XviD.AC3-NYDIC.avi")
 
     if usermovie:
-        retrieve_subtitle_for_movie(usermovie)
+        try:
+            retrieve_subtitle_for_movie(usermovie)
+        except Exception as e:
+            print_debug(repr(e))
+            raise
 
     # API tests
     search = "gattaca"
