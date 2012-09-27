@@ -1,9 +1,8 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 #
-# legendas - an API for Legendas.TV movie/TV series subtitles website
-#
 #    Copyright (C) 2012 Rodrigo Silva (MestreLion) <linux@rodrigosilva.com>
+#    This file is part of Legendas.TV Subtitle Downloader
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -18,70 +17,27 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program. See <http://www.gnu.org/licenses/gpl.html>
 #
-# When used as a module, provides several methods to log in, search for movies
-# and subtitles, retrieve their data, and download and extract the subtitles.
-#
-# When used as a script, uses command-line parameters to log in, search for
-# a title (or torrent "release"), download, extract and rename the most suitable
-# subtitle
+# Parser and utilities for Legendas.TV website
 
-# TODO: (the loooong Roadmap list):
-# - more robust (ok, *any*) error handling.
-# - log debug messages to file instead of output to console
-# - convert magic numbers to enums / named constants
-# - create decent classes for entities (movies, subtitles, comments)
-# - cache movies and subtitles info to prickle/database
-# - re-estructure the methods into html-parsing (private) and task-driven ones
-#   a method for parsing each website page to feed the class/database, used by
-#   the user-oriented "getXxxByXxx()" methods to retrieve and present the data
-# - Console interactive mode to simulate current website navigation workflow:
-#   search movie > select movie in list > select subtitle in list > download >
-#   extract > handle files
-# - Gtk GUI for interactive mode
-# - Research Filebot, FlexGet, and others, to see what interface is expected for
-#   a subtitle plugin
-# - Make a Windows/OSX port possible: cache and config dirs, unrar lib,
-#   notifications
-# - Create a suitable workflow for TV Series (seasons, episodes)
 
 import os
 import re
-import sys
 import dbus
 import urllib
 import urllib2
+import difflib
+import zipfile
+import operator
+import logging
 from lxml import html
 from datetime import datetime
-import difflib
-import rarfile
-import zipfile
-import ConfigParser
-import operator
 
-_globals = {
-    'appname'   : "legendastv",
-    'apptitle'  : "Legendas.TV",
-    'appicon'   : os.path.join(os.path.dirname(os.path.realpath(__file__)),
-                               "icon.png"),
-    'notifier'  : None,
-}
-_globals.update({
-    'cache_dir' : os.path.join(os.environ.get('XDG_CACHE_HOME') or
-                               os.path.join(os.path.expanduser('~'), '.cache'),
-                               _globals['appname']),
-    'config_dir': os.path.join(os.environ.get('XDG_CONFIG_HOME') or
-                               os.path.join(os.path.expanduser('~'), '.config'),
-                               _globals['appname']),
-    'notify_icon': _globals['appicon']
-})
+from . import g
+from . import rarfile
+from . import opensubtitles
 
-# These factory settings are also available at config file
-login      = ""
-password   = ""
-debug      = True
-cache      = True
-similarity = 0.7
-notifications = True
+log = logging.getLogger(__name__)
+
 
 # Languages [and flag names (language "codes")]:
 #  1 * Português-BR (Brazilian Portuguese) [br]
@@ -148,18 +104,18 @@ notifications = True
 def notify(body, summary='', icon=''):
 
     # Fallback for no notifications
-    if not notifications:
+    if not g.options['notifications']:
         print "%s - %s" % (summary, body)
         return
 
     # Use the same interface object in all calls
-    if not _globals['notifier']:
+    if not g.globals['notifier']:
         _bus_name = 'org.freedesktop.Notifications'
         _bus_path = '/org/freedesktop/Notifications'
         _bus_obj  = dbus.SessionBus().get_object(_bus_name, _bus_path)
-        _globals['notifier'] = dbus.Interface(_bus_obj, _bus_name)
+        g.globals['notifier'] = dbus.Interface(_bus_obj, _bus_name)
 
-    app_name    = _globals['apptitle']
+    app_name    = g.globals['apptitle']
     replaces_id = 0
     summary     = summary or app_name
     actions     = []
@@ -167,59 +123,16 @@ def notify(body, summary='', icon=''):
     timeout     = -1 # server default
 
     if icon and os.path.exists(icon):
-        _globals['notify_icon'] = icon # save for later
-    app_icon    = _globals['notify_icon']
+        g.globals['notify_icon'] = icon # save for later
+    app_icon    = g.globals['notify_icon']
 
-    _globals['notifier'].Notify(app_name, replaces_id, app_icon, summary, body,
+    g.globals['notifier'].Notify(app_name, replaces_id, app_icon, summary, body,
                                 actions, hints, timeout)
     print_debug("Notification: %s" % body)
 
 def print_debug(text):
-    if not debug: return
+    if not g.options['debug']: return
     print "%s\t%s" % (datetime.today(), '\n\t'.join(text.split('\n')))
-
-def read_config():
-    global login, password, debug, cache, similarity
-
-    cp = ConfigParser.SafeConfigParser()
-    config_file = os.path.join(_globals['config_dir'],
-                               _globals['appname'] + ".ini")
-
-    if not os.path.exists(config_file):
-        if not os.path.isdir(_globals['config_dir']):
-            os.makedirs(_globals['config_dir'])
-        cp.add_section("Preferences")
-        cp.set("Preferences", "login"     , str(login)) #FIXME: unicode!
-        cp.set("Preferences", "password"  , str(password))
-        cp.set("Preferences", "debug"     , str(debug))
-        cp.set("Preferences", "cache"     , str(cache))
-        cp.set("Preferences", "similarity", str(similarity))
-
-        with open(config_file, 'w') as f:
-            cp.write(f)
-
-        if debug: sys.stderr.write("A blank config file was created at %s\n"
-            "Please edit it and fill in login and password before using this"
-            " module\n" % config_file)
-
-        return
-
-    cp.read(config_file)
-
-    if cp.has_section("Preferences"):
-        try:
-            login      = cp.get("Preferences", "login")           or login
-            password   = cp.get("Preferences", "password")        or password
-            similarity = cp.getfloat("Preferences", "similarity") or similarity
-            debug      = cp.getboolean("Preferences", "debug")
-            cache      = cp.getboolean("Preferences", "cache")
-        except:
-            pass
-
-    if not (login and password):
-        sys.stderr.write("Login or password is blank. You won't be able to"
-            " access Legendas.TV without it.\nPlease edit your config file"
-            " at %s\nand fill them in\n" % config_file)
 
 def fields_to_int(dict, *keys):
     """ Helper function to cast several fields in a dict to int
@@ -306,7 +219,7 @@ def guess_movie_info(text):
             'bluray','bdrip','brrip','dvd','dvdrip','xvid','mp4','itunes',
             'web dl','blu ray']
     for s in tags:
-        title = re.sub(s, "", title, re.IGNORECASE)
+        title = re.sub(s, "", title, 0, re.IGNORECASE)
     title = re.sub(" +", " ", title).strip()
 
     result = dict(year=year, title=title, release=release)
@@ -414,20 +327,26 @@ class HttpBot(object):
         return filename
 
     def cache(self, url):
-        filename = os.path.join(_globals['cache_dir'], os.path.basename(url))
+        filename = os.path.join(g.globals['cache_dir'], os.path.basename(url))
         if os.path.exists(filename):
             return True
         else:
-            return (self.download(url, _globals['cache_dir']))
+            return (self.download(url, g.globals['cache_dir']))
 
 
 class LegendasTV(HttpBot):
 
-    def __init__(self, username, password):
+    def __init__(self, login=None, password=None):
         super(LegendasTV, self).__init__("http://legendas.tv/")
+
+        self.login    = login    or g.options['login']
+        self.password = password or g.options['password']
+
         url = "login_verificar.php"
-        print_debug("Logging into %s as %s" % (self.base_url + url, username))
-        self.get(url, {'txtLogin': username, 'txtSenha': password})
+        log.info("Logging into %s as %s", self.base_url + url, self.login)
+
+        self.get(url, {'txtLogin': self.login,
+                       'txtSenha': self.password})
 
     def _searchdata(self, text, type=None, lang=None):
         """ Helper for the website's search form. Return a dict suitable for
@@ -468,7 +387,7 @@ class LegendasTV(HttpBot):
             movie.update(re.search(self._re_movie_data,
                                    html.tostring(e)).groupdict())
             fields_to_int(movie, 'id', 'year')
-            if cache: self.cache(movie['thumb'])
+            if g.options['cache']: self.cache(movie['thumb'])
             movies.append(movie)
 
         print_debug("Titles found for '%s':\n%s" % (text,
@@ -628,7 +547,7 @@ class LegendasTV(HttpBot):
                 else:
                     sub['pack'] = False
 
-                if cache: self.cache(sub['flag'])
+                if g.options['cache']: self.cache(sub['flag'])
                 subtitles.append(sub)
 
             # Page control
@@ -754,7 +673,7 @@ class LegendasTV(HttpBot):
                                                       print_dictlist(result)))
         return result
 
-def retrieve_subtitle_for_movie(usermovie):
+def retrieve_subtitle_for_movie(usermovie, login=None, password=None):
     """ Main function to find, download, extract and match a subtitle for a
         selected file
     """
@@ -771,8 +690,8 @@ def retrieve_subtitle_for_movie(usermovie):
 
     # Which string we use first for searches? Dirname or Filename?
     # If they are similar, take the dir. If not, take the longest
-    if get_similarity(dirname, filename) > similarity or \
-       len(dirname) > len(filename):
+    if (get_similarity(dirname, filename) > g.options['similarity'] or
+        len(dirname) > len(filename)):
         search = dirname
     else:
         search = filename
@@ -810,11 +729,11 @@ def retrieve_subtitle_for_movie(usermovie):
                                     'search')
 
         # But... Is it really similar? Maybe results were capped at 10
-        if result['similarity'] > similarity or len(movies)<10:
+        if result['similarity'] > g.options['similarity'] or len(movies)<10:
             movie.update(result['best'])
             notify("Searching title '%s' (%s)" % (result['best']['title'],
                                                   result['best']['year']),
-                   icon=os.path.join(_globals['cache_dir'],
+                   icon=os.path.join(g.globals['cache_dir'],
                                      os.path.basename(result['best']['thumb'])))
             subs = legendastv.getSubtitlesByMovie(movie)
 
@@ -890,30 +809,3 @@ def retrieve_subtitle_for_movie(usermovie):
         # and search for yourself. I swear I tried...
         notify("No subtitles found")
         return False
-
-
-read_config()
-
-if __name__ == "__main__" and login and password:
-
-    # scrap area, for tests
-
-    # User selects a movie by filename...
-    try:
-        usermovie = unicode(sys.argv[1], "utf-8")
-    except:
-        usermovie = os.path.expanduser("~/Videos/The Kings.Speech.2010.DVDSCR.XviD.AC3-NYDIC/"
-                                       "The Kings.Speech.2010.DVDSCR.XviD.AC3-NYDIC.avi")
-
-    if usermovie:
-        try:
-            retrieve_subtitle_for_movie(usermovie)
-        except Exception as e:
-            print_debug(repr(e))
-            raise
-
-    # API tests
-    search = "gattaca"
-    ltv = LegendasTV(login, password)
-    ltv.getMovieDetails(ltv.getMovies(search)[0])
-    ltv.getSubtitleDetails(ltv.getSubtitlesByText(search)[0]['hash'])

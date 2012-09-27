@@ -1,0 +1,94 @@
+# -*- coding: utf-8 -*-
+#
+#    Copyright (C) 2012 Rodrigo Silva (MestreLion) <linux@rodrigosilva.com>
+#    This file is part of Legendas.TV Subtitle Downloader
+#
+#    This program is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    This program is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    along with this program. See <http://www.gnu.org/licenses/gpl.html>
+#
+# Global options, parameters and definitions
+
+import os
+import ConfigParser
+
+globals = {
+
+    'appname'   : "legendastv",
+
+    'apptitle'  : "Legendas.TV",
+
+    'notifier'  : None,
+}
+globals.update({
+
+    'appicon'   : os.path.abspath(
+                    os.path.join(os.path.dirname(os.path.realpath(__file__)),
+                                 "..", globals['appname'] + ".png")),
+
+    'cache_dir' : os.path.join(os.environ.get('XDG_CACHE_HOME') or
+                               os.path.join(os.path.expanduser('~'), '.cache'),
+                               globals['appname']),
+
+    'config_dir': os.path.join(os.environ.get('XDG_CONFIG_HOME') or
+                               os.path.join(os.path.expanduser('~'), '.config'),
+                               globals['appname']),
+})
+globals.update({
+
+    'notify_icon' : globals['appicon'],
+
+    'config_file' : os.path.join(globals['config_dir'],
+                                 globals['appname'] + ".ini"),
+})
+
+# These factory settings are also available at config file
+options = {
+    'login'         : "",
+    'password'      : "",
+    'debug'         : True,
+    'cache'         : True,
+    'similarity'    : 0.7,
+    'notifications' : True,
+}
+
+def read_config():
+
+    section = "Preferences"
+    cp = ConfigParser.SafeConfigParser()
+
+    if not os.path.exists(globals['config_file']):
+        if not os.path.isdir(globals['config_dir']):
+            os.makedirs(globals['config_dir'])
+        cp.add_section(section)
+        for option in options:
+            cp.set(section, option, unicode(options[option]))
+
+        with open(globals['config_file'], 'w') as f:
+            cp.write(f)
+
+        return
+
+    cp.read(globals['config_file'])
+
+    if cp.has_section(section):
+        for option in options:
+            if   isinstance(options[option], bool ): get = cp.getboolean
+            elif isinstance(options[option], int  ): get = cp.getint
+            elif isinstance(options[option], float): get = cp.getfloat
+            else                                     : get = cp.get
+
+            try:
+                options[option] = get(section, option)
+
+            except ConfigParser.NoOptionError, ValueError:
+                pass
