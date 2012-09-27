@@ -46,12 +46,26 @@
 # - Create a suitable workflow for TV Series (seasons, episodes)
 
 import os, sys
+import logging.handlers
 
 from legendastv import g, legendastv
 
 if __name__ == "__main__":
 
+    log = logging.getLogger(g.globals['appname'])
+    fh = logging.handlers.RotatingFileHandler(g.globals['log_file'],
+                                              maxBytes=2**20,
+                                              backupCount=10,
+                                              delay=True,)
+    fh.setFormatter(logging.Formatter(logging.BASIC_FORMAT))
+    log.addHandler(fh)
+    log.addHandler(logging.StreamHandler())
+
     g.read_config()
+
+
+    if g.options['debug']:
+        log.setLevel(logging.DEBUG)
 
     if not (g.options['login'] and g.options['password']):
         log.warn("Login or password is blank. You won't be able to access"

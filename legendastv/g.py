@@ -20,6 +20,9 @@
 
 import os
 import ConfigParser
+import logging
+
+log = logging.getLogger(__name__)
 
 globals = {
 
@@ -49,6 +52,9 @@ globals.update({
 
     'config_file' : os.path.join(globals['config_dir'],
                                  globals['appname'] + ".ini"),
+
+    'log_file'    : os.path.join(globals['cache_dir'],
+                                 globals['appname'] + ".log"),
 })
 
 # These factory settings are also available at config file
@@ -76,6 +82,10 @@ def read_config():
         with open(globals['config_file'], 'w') as f:
             cp.write(f)
 
+        log.info("A blank config file was created at %s\n"
+                 "Please edit it and fill in login and password before using"
+                 " this module", globals['config_file'])
+
         return
 
     cp.read(globals['config_file'])
@@ -90,5 +100,9 @@ def read_config():
             try:
                 options[option] = get(section, option)
 
-            except ConfigParser.NoOptionError, ValueError:
-                pass
+            except ConfigParser.NoOptionError as e:
+                log.warn("%s in %s", e, globals['config_file'])
+
+            except ValueError as e:
+                log.warn("%s in '%s' option of %s", e, option,
+                         globals['config_file'])

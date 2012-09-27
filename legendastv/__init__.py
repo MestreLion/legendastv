@@ -21,3 +21,13 @@
 __author__  = 'MestreLion <linux@rodrigosilva.com>'
 __version__ = '0.1'
 __all__     = []
+
+import logging
+
+from . import g
+
+log = logging.getLogger(__name__)
+log.addHandler(logging.NullHandler())
+
+if g.options['debug']:
+    log.setLevel(logging.DEBUG)
