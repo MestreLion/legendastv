@@ -26,8 +26,20 @@ import logging
 
 from . import g
 
-log = logging.getLogger(__name__)
-log.addHandler(logging.NullHandler())
+def _setup_logging():
 
-if g.options['debug']:
-    log.setLevel(logging.DEBUG)
+    # "Main" logger for the project will be package's name
+    log = logging.getLogger(__name__)
+
+    # Be a well-behaved library and use only NullHandler
+    log.addHandler(logging.NullHandler())
+
+    # Add a custom level for notifications, between INFO and WARNING
+    _NOTIFY = (25, "NOTIFY")
+    logging.addLevelName(_NOTIFY[0], _NOTIFY[1])
+    def notify(self, message, *args, **kws):
+        self._log(_NOTIFY[0], message, args, **kws) # args, not *args
+    logging.Logger.notify = notify
+
+
+_setup_logging()

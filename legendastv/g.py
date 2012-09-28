@@ -28,7 +28,7 @@ log = logging.getLogger(__name__)
 
 globals = {
 
-    'appname'   : "legendastv",
+    'appname'   : __package__,
 
     'apptitle'  : "Legendas.TV",
 

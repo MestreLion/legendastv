@@ -129,11 +129,10 @@ def notify(body, summary='', icon=''):
 
     g.globals['notifier'].Notify(app_name, replaces_id, app_icon, summary, body,
                                 actions, hints, timeout)
-    print_debug("Notification: %s" % body)
+    log.notify(body)
 
 def print_debug(text):
-    if not g.options['debug']: return
-    print "%s\t%s" % (datetime.today(), '\n\t'.join(text.split('\n')))
+    log.debug('\n\t'.join(text.split('\n')))
 
 def fields_to_int(dict, *keys):
     """ Helper function to cast several fields in a dict to int

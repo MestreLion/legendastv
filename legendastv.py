@@ -52,19 +52,48 @@ import logging.handlers
 
 from legendastv import g, legendastv
 
-if __name__ == "__main__":
+def run_demo():
+    # API tests
+    search = "gattaca"
+    ltv = legendastv.LegendasTV(g.options['login'], g.options['password'])
+    movies = ltv.getMovies(search)
+    if movies:
+        ltv.getMovieDetails(movies[0])
+        ltv.getSubtitleDetails(ltv.getSubtitlesByText(search)[0]['hash'])
 
+def setup_logging():
+
+    # Use same logger as the package
     log = logging.getLogger(g.globals['appname'])
+
+    # Console output (stderr)
+    sh = logging.StreamHandler()
+
+    # Rotating log file (10 x 1MB)
     fh = logging.handlers.RotatingFileHandler(g.globals['log_file'],
                                               maxBytes=2**20,
                                               backupCount=10,
                                               delay=True,)
-    fh.setFormatter(logging.Formatter(logging.BASIC_FORMAT))
+
+    # Format them
+    #format = '%(asctime)s %(name)-21s %(levelname)-6s %(message)s'
+    format = '%(asctime)s %(levelname)-8s %(message)s'
+    fmt = logging.Formatter(format)
+    fh.setFormatter(fmt)
+    sh.setFormatter(fmt)
+
+    # Add them to logger
     log.addHandler(fh)
-    log.addHandler(logging.StreamHandler())
+    log.addHandler(sh)
+
+    return log
+
+
+if __name__ == "__main__":
+
+    log = setup_logging()
 
     g.read_config()
-
 
     if g.options['debug']:
         log.setLevel(logging.DEBUG)
@@ -76,22 +105,11 @@ if __name__ == "__main__":
                  "and fill them in", g.globals['config_file'])
 
     # User selects a movie by filename...
+    filename = (unicode(sys.argv[1], "utf-8")
+                if len(sys.argv) > 1
+                else os.path.expanduser("~/Videos/Revolution OS.avi"))
+
     try:
-        usermovie = unicode(sys.argv[1], "utf-8")
-    except:
-        usermovie = os.path.expanduser("~/Videos/Revolution OS.avi")
-
-    if usermovie:
-        try:
-            legendastv.retrieve_subtitle_for_movie(usermovie)
-        except Exception as e:
-            legendastv.print_debug(repr(e))
-            raise
-
-    # API tests
-    search = "gattaca"
-    ltv = legendastv.LegendasTV(g.options['login'], g.options['password'])
-    movies = ltv.getMovies(search)
-    if movies:
-        ltv.getMovieDetails(movies[0])
-        ltv.getSubtitleDetails(ltv.getSubtitlesByText(search)[0]['hash'])
+        legendastv.retrieve_subtitle_for_movie(filename)
+    except Exception as e:
+        log.critical(e)
