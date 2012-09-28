@@ -79,8 +79,7 @@ if __name__ == "__main__":
     try:
         usermovie = unicode(sys.argv[1], "utf-8")
     except:
-        usermovie = os.path.expanduser("~/Videos/Lockout.UNRATED.720p.BluRay.x264-BLOW [PublicHD]/"
-                                       "Lockout.UNRATED.720p.BluRay.x264-BLOW.PublicHD.mkv")
+        usermovie = os.path.expanduser("~/Videos/Revolution OS.avi")
 
     if usermovie:
         try:
