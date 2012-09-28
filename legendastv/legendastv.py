@@ -19,6 +19,7 @@
 #
 # Parser and utilities for Legendas.TV website
 
+from __future__ import unicode_literals, division
 
 import os
 import re

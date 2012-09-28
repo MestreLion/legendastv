@@ -18,6 +18,8 @@
 #
 # Global options, parameters and definitions
 
+from __future__ import unicode_literals
+
 import os
 import ConfigParser
 import logging
