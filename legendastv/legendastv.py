@@ -19,7 +19,7 @@
 #
 # Parser and utilities for Legendas.TV website
 
-from __future__ import unicode_literals, division
+from __future__ import unicode_literals, absolute_import, division
 
 import os
 import re
@@ -288,7 +288,7 @@ def extract_archive(archive, dir="", extlist=[], keep=False):
     except IOError as e:
         log.error(e)
 
-    log.info("%d extracted files in '%s', filtered by %s\n%s",
+    log.info("%d extracted files in '%s', filtered by %s\n\t%s",
              len(files), archive, extlist, print_dictlist(files))
     return files
 

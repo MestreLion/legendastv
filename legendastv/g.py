@@ -18,7 +18,7 @@
 #
 # Global options, parameters and definitions
 
-from __future__ import unicode_literals
+from __future__ import unicode_literals, absolute_import
 
 import os
 import ConfigParser
@@ -28,7 +28,7 @@ log = logging.getLogger(__name__)
 
 globals = {
 
-    'appname'   : __package__,
+    'appname'   : __name__.split(".")[0],
 
     'apptitle'  : "Legendas.TV",
 

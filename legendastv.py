@@ -45,7 +45,7 @@
 #   notifications
 # - Create a suitable workflow for TV Series (seasons, episodes)
 
-from __future__ import unicode_literals, division
+from __future__ import unicode_literals, absolute_import
 
 import os, sys
 import logging.handlers

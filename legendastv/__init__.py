@@ -18,6 +18,8 @@
 #
 # Package initialization
 
+from __future__ import unicode_literals, absolute_import
+
 __author__  = 'MestreLion <linux@rodrigosilva.com>'
 __version__ = '0.1'
 __all__     = []
@@ -26,20 +28,27 @@ import logging
 
 from . import g
 
-def _setup_logging():
+def _add_global_custom_level(level, name):
+
+    def custom_level(self, msg, *args, **kws):
+        if self.isEnabledFor(level):
+            self._log(level, msg, args, **kws) # args, not *args
+
+    logging.addLevelName(level, name.upper())
+    setattr(logging.Logger, name.lower(), custom_level)
+    setattr(logging, name.upper(), level) # create the constant too
+
+def setup_logging():
 
     # "Main" logger for the project will be package's name
-    log = logging.getLogger(__name__)
+    log = logging.getLogger(__package__)
 
     # Be a well-behaved library and use only NullHandler
     log.addHandler(logging.NullHandler())
 
-    # Add a custom level for notifications, between INFO and WARNING
-    _NOTIFY = (25, "NOTIFY")
-    logging.addLevelName(_NOTIFY[0], _NOTIFY[1])
-    def notify(self, message, *args, **kws):
-        self._log(_NOTIFY[0], message, args, **kws) # args, not *args
-    logging.Logger.notify = notify
+    # Ok, not so well behaved... (for now)
+    _add_global_custom_level(21, "notify")
 
+    return log
 
-_setup_logging()
+setup_logging()

@@ -18,7 +18,7 @@
 #
 # Helper functions to wrap OpenSubtitles.org API
 
-from __future__ import unicode_literals
+from __future__ import unicode_literals, absolute_import, division
 
 import xmlrpclib
 import struct, os, sys
