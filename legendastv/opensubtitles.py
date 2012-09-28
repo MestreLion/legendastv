@@ -32,7 +32,7 @@ class OpenSubtitlesError(Exception):
 def videohash(filename):
 
     block = 65536
-    format = "<%dQ" % (block//8) # unsigned long long little endian
+    format = b"<%dQ" % (block//8) # unsigned long long little endian
     hash = os.path.getsize(filename) # initial value for hash is file size
 
     def partialhash(f):

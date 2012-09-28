@@ -107,9 +107,10 @@ if __name__ == "__main__":
     # User selects a movie by filename...
     filename = (unicode(sys.argv[1], "utf-8")
                 if len(sys.argv) > 1
-                else os.path.expanduser("~/Videos/Revolution OS.avi"))
+                else os.path.expanduser("~/Videos/CSI/Season 12/"
+                                        "CSI.S12E19.720p.HDTV.X264-DIMENSION.mkv"))
 
     try:
         legendastv.retrieve_subtitle_for_movie(filename)
     except Exception as e:
-        log.critical(e)
+        log.critical(e, exc_info=1)
