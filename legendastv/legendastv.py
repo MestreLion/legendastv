@@ -720,9 +720,52 @@ def retrieve_subtitle_for_movie(usermovie, login=None, password=None):
 
     # Now let's play with that string and try to get some useful info
     movie = guess_movie_info(search)
-    notify("Searching for '%s'" % movie['title'])
+    movie.update({'episode': '', 'season': '', 'type': '' })
+
+    # Try to tell movie from episode
+    data_obj = re.search('S(?P<season>\d\d?)E(?P<episode>\d\d?)',
+                      movie['title'], re.IGNORECASE)
+    if data_obj:
+        data = data_obj.groupdict()
+        movie['type']    = 'episode'
+        movie['season']  = data['season']
+        movie['episode'] = data['episode']
+        movie['title']   = movie['title'][:data_obj.start()]
+
+    # Get more useful info from OpenSubtitles.org
+    osdb_movies = opensubtitles.videoinfo(usermovie)
+    osdb_movies_found = len(osdb_movies)
+
+    if osdb_movies_found:
+        for m in osdb_movies:
+            m['search'] = "%s %s" % (m['MovieName'], m['MovieYear'])
+
+
+        osdb_movie = choose_best_by_key("%s %s" % (movie['title'],
+                                                   movie['year']),
+                                        osdb_movies,
+                                        'search')['best']
+
+        movie['title']   = osdb_movie['MovieName']
+        movie['year']    = osdb_movie['MovieYear']
+        movie['type']    = movie['type']    or osdb_movie['MovieKind']
+        movie['season']  = movie['season']  or osdb_movie['SeriesSeason']
+        movie['episode'] = movie['episode'] or osdb_movie['SeriesEpisode']
+
+    def season_to_ord(season):
+        season = int(season)
+        if   season == 1: tag = "st"
+        elif season == 2: tag = "nd"
+        elif season == 3: tag = "rd"
+        else            : tag = "th"
+        return "%d%s" % (season, tag)
+
+    if movie['type'] == "episode":
+        movie['title'] = "%s%s Season" % (movie['title'],
+                                           season_to_ord(movie['season']))
 
     # Let's begin with a movie search
+    notify("Searching for '%s'" % movie['title'])
     if len(movie['title']) >= 2:
         movies = legendastv.getMovies(movie['title'], 2)
     else:
