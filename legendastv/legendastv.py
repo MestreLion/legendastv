@@ -244,7 +244,7 @@ def print_dictlist(dictlist, keys=None, whitelist=True):
     return "\n".join([repr(filter_dict(d, keys, whitelist))
                       for d in dictlist])
 
-def extract_archive(archive, dir=None, extlist=[], keep=False):
+def extract_archive(archive, dir="", extlist=[], keep=False):
     """ Extract files from a zip or rar archive whose filename extension
         (including the ".") is in extlist, or all files if extlist is empty.
         If keep is False, also delete the archive afterwards
@@ -252,25 +252,45 @@ def extract_archive(archive, dir=None, extlist=[], keep=False):
         - dir is the extraction folder, same folder as archive if empty
         return: a list with the filenames (with path) of extracted files
     """
-    if not (dir and os.path.isdir(os.path.expanduser(dir))):
+
+    # Clean up arguments
+    archive = os.path.expanduser(archive)
+    dir     = os.path.expanduser(dir)
+
+    # Convert string to a single-item list
+    if extlist and isinstance(extlist, basestring):
+        extlist = extlist.split()
+
+    if not os.path.isdir(dir):
         dir = os.path.dirname(archive)
 
     files = []
+
     af = ArchiveFile(archive)
-    for f in af.infolist():
-        if not extlist or os.path.splitext(f.filename)[1].lower() in extlist:
-            outfile = os.path.expanduser(os.path.join(dir, f.filename))
-            with open(outfile, 'wb') as output:
-                output.write(af.read(f))
-                files.append(outfile)
+
+    log.debug("%d files in archive '%s': %r",
+              len(af.namelist()), os.path.basename(archive), af.namelist())
+
+    for f in [f for f in af.namelist()
+                if af.getinfo(f).file_size > 0 and # to exclude dirs
+                    (not extlist or
+                     os.path.splitext(f)[1].lower() in extlist)]:
+
+        outfile = os.path.join(dir, os.path.basename(f))
+
+        with open(outfile, 'wb') as output:
+            output.write(af.read(f))
+            files.append(outfile)
+
+    af.close()
 
     try:
         if not keep: os.remove(archive)
-    except:
-        pass # who cares?
+    except IOError as e:
+        log.error(e)
 
-    print_debug("Extracted archive '%s' (%s)\n%s" % (archive, extlist,
-                                                    print_dictlist(files)))
+    log.info("%d extracted files in '%s', filtered by %s\n%s",
+             len(files), archive, extlist, print_dictlist(files))
     return files
 
 def ArchiveFile(filename):
@@ -281,9 +301,11 @@ def ArchiveFile(filename):
                 <filename> content
     """
     if   rarfile.is_rarfile(filename):
-        return rarfile.RarFile(filename)
+        return rarfile.RarFile(filename, mode='r')
+
     elif zipfile.is_zipfile(filename):
-        return zipfile.ZipFile(filename)
+        return zipfile.ZipFile(filename, mode='r')
+
     else:
         return None
 
