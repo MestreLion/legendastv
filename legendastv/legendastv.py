@@ -695,14 +695,16 @@ class LegendasTV(HttpBot):
                                                       print_dictlist(result)))
         return result
 
-def retrieve_subtitle_for_movie(usermovie, login=None, password=None):
+def retrieve_subtitle_for_movie(usermovie, login=None, password=None,
+                                legendastv=None):
     """ Main function to find, download, extract and match a subtitle for a
         selected file
     """
 
     # Log in
-    notify("Logging in Legendas.TV")
-    legendastv = LegendasTV(login, password)
+    if not legendastv:
+        notify("Logging in Legendas.TV", icon=g.globals['appicon'])
+        legendastv = LegendasTV(login, password)
 
     usermovie = os.path.abspath(usermovie)
     print_debug("Target: %s" % usermovie)

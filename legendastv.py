@@ -110,7 +110,24 @@ if __name__ == "__main__":
                 else os.path.expanduser("~/Videos/CSI/Season 12/"
                                         "CSI.S12E19.720p.HDTV.X264-DIMENSION.mkv"))
 
+    videos = ['.3gpp', '.asf', '.asx', '.avi', '.divx', '.cam', '.flc','.fli',
+              '.flv', '.h264', '.m2ts', '.mkv', '.mov', '.mp4', '.mpeg',
+              '.mpg', '.mpv', '.ogg', '.ogm', ',ogv', '.rm', '.rmvb', '.swf',
+              '.ts', '.vid', '.vob', '.wmv', '.x264', '.xvid' ]
+
     try:
-        legendastv.retrieve_subtitle_for_movie(filename)
+        if os.path.isdir(filename):
+            # Its a dir, so log in just once and loop its files
+            legendastv.notify("Logging in Legendas.TV")
+            ltv = legendastv.LegendasTV()
+            for root, subFolders, files in os.walk(filename):
+                for video in files:
+                    if os.path.splitext(video)[1] in videos:
+                        videofile = os.path.join(root, video)
+                        legendastv.retrieve_subtitle_for_movie(videofile,
+                                                               legendastv=ltv)
+
+        else:
+            legendastv.retrieve_subtitle_for_movie(filename)
     except Exception as e:
         log.critical(e, exc_info=1)
