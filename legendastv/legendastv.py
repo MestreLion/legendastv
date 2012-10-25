@@ -106,7 +106,7 @@ def notify(body, summary='', icon=''):
 
     # Fallback for no notifications
     if not g.options['notifications']:
-        print "%s - %s" % (summary, body)
+        log.notify("%s - %s", summary, body)
         return
 
     # Use the same interface object in all calls
@@ -905,7 +905,7 @@ def retrieve_subtitle_for_movie(usermovie, login=None, password=None,
             file = files[0] # so much easier...
 
         newname = os.path.join(savedir, filename) + ".srt"
-        notify("Matching '%s'" % os.path.basename(file))
+        #notify("Matching '%s'" % os.path.basename(file)) # enough notifications
         os.rename(file, newname)
         notify("DONE! Oba Rê!!")
         return True
