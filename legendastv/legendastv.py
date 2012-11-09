@@ -773,6 +773,9 @@ def retrieve_subtitle_for_movie(usermovie, login=None, password=None,
         else            : tag = "th"
         return "%d%s" % (season, tag)
 
+    # Remove special chars that LegendasTV diskiles
+    movie['title'] = movie['title'].replace("'","")
+
     if movie['type'] == "episode":
         movie['title'] = "%s %s Season" % (movie['title'],
                                            season_to_ord(movie['season']))
