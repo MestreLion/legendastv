@@ -736,7 +736,12 @@ def retrieve_subtitle_for_movie(usermovie, login=None, password=None,
         movie['title']   = movie['title'][:data_obj.start()]
 
     # Get more useful info from OpenSubtitles.org
-    osdb_movies = opensubtitles.videoinfo(usermovie)
+    osdb_movies = []
+    try:
+        osdb_movies = opensubtitles.videoinfo(usermovie)
+    except:
+        pass
+
     print_debug("%d OpenSubtitles found:\n%s" %
                 (len(osdb_movies), print_dictlist(osdb_movies)))
 
