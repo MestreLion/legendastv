@@ -364,6 +364,9 @@ class LegendasTV(HttpBot):
         self.login    = login    or g.options['login']
         self.password = password or g.options['password']
 
+        if not (self.login and self.password):
+            return
+
         url = "login_verificar.php"
         log.info("Logging into %s as %s", self.base_url + url, self.login)
 

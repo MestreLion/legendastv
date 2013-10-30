@@ -124,10 +124,9 @@ if __name__ == "__main__":
         log.setLevel(logging.DEBUG)
 
     if not (g.options['login'] and g.options['password']):
-        log.warn("Login or password is blank. You won't be able to access"
-                 " Legendas.TV without it.\n"
-                 "Please edit your config file at %s\n"
-                 "and fill them in", g.globals['config_file'])
+        log.warn("Login or password are blank. Some features may be disabled.\n\t"
+                 "To fill them in, edit your config file: %s",
+                 g.globals['config_file'])
     try:
         if len(sys.argv) < 2:
             run_demo()
