@@ -97,7 +97,7 @@ def read_config():
             if   isinstance(options[option], bool ): get = cp.getboolean
             elif isinstance(options[option], int  ): get = cp.getint
             elif isinstance(options[option], float): get = cp.getfloat
-            else                                     : get = cp.get
+            else                                   : get = cp.get
 
             try:
                 options[option] = get(section, option)

@@ -52,14 +52,17 @@ import logging.handlers
 
 from legendastv import g, filetools, legendastv
 
+
 def run_demo():
     # API tests
+    log.info("Running API demo mode")
     search = "gattaca"
     ltv = legendastv.LegendasTV(g.options['login'], g.options['password'])
     movies = ltv.getMovies(search)
     if movies:
         ltv.getMovieDetails(movies[0])
         ltv.getSubtitleDetails(ltv.getSubtitlesByText(search)[0]['hash'])
+
 
 def setup_logging():
 
@@ -89,6 +92,28 @@ def setup_logging():
     return log
 
 
+def main(args):
+    legendastv.notify("Logging in Legendas.TV")
+    ltv = legendastv.LegendasTV()
+
+    for path in args:
+        filename = unicode(path, "utf-8")
+
+        if os.path.isdir(filename):
+            for root, _, files in os.walk(filename):
+                for video in files:
+                    videofile = os.path.join(root, video)
+                    if filetools.is_video(videofile):
+                        legendastv.retrieve_subtitle_for_movie(videofile,
+                                                               legendastv=ltv)
+
+        elif os.path.isfile(filename):
+            legendastv.retrieve_subtitle_for_movie(filename, legendastv=ltv)
+
+        else:
+            log.warn("Ignoring path %s", filename)
+
+
 if __name__ == "__main__":
 
     log = setup_logging()
@@ -103,26 +128,10 @@ if __name__ == "__main__":
                  " Legendas.TV without it.\n"
                  "Please edit your config file at %s\n"
                  "and fill them in", g.globals['config_file'])
-
-    # User selects a movie by filename...
-    filename = (unicode(sys.argv[1], "utf-8")
-                if len(sys.argv) > 1
-                else os.path.expanduser("~/Videos/CSI/Season 12/"
-                                        "CSI.S12E19.720p.HDTV.X264-DIMENSION.mkv"))
-
     try:
-        if os.path.isdir(filename):
-            # Its a dir, so log in just once and loop its files
-            legendastv.notify("Logging in Legendas.TV")
-            ltv = legendastv.LegendasTV()
-            for root, subFolders, files in os.walk(filename):
-                for video in files:
-                    videofile = os.path.join(root, video)
-                    if filetools.is_video(videofile):
-                        legendastv.retrieve_subtitle_for_movie(videofile,
-                                                               legendastv=ltv)
-
+        if len(sys.argv) < 2:
+            run_demo()
         else:
-            legendastv.retrieve_subtitle_for_movie(filename)
+            main(sys.argv[1:])
     except Exception as e:
         log.critical(e, exc_info=1)
