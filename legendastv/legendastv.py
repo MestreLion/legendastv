@@ -30,6 +30,7 @@ import difflib
 import zipfile
 import operator
 import logging
+import json
 from lxml import html
 from datetime import datetime
 
@@ -384,35 +385,32 @@ class LegendasTV(HttpBot):
                 'btn_buscar.y': 0,}
 
     _re_movie_text = re.compile(r"^(?P<title>.+)\ \((?P<year>\d+)\)$")
-    _re_movie_data = re.compile(r"filme=(?P<id>\d+).+src=\\'(?P<thumb>[^']+)\\'")
 
-    def getMovies(self, text, type=None):
+    def getMovies(self, text):
         """ Given a search text, return a list of dicts with basic movie info:
-            id, title, year, thumb (relative url for a thumbnail image)
+            id, title, title_br, thumb (relative url for a thumbnail image)
         """
         movies = []
 
-        tree = html.parse(self.get("index.php?opcao=buscarlegenda",
-                                   self._searchdata(text, type)))
+        tree = json.load(self.get("util/busca_titulo/" +
+                                  urllib.quote(text.encode('utf-8'), safe='')))
 
-        #<table width="400" border="0" cellpadding="0" cellspacing="0" class="filmresult">
-        #<tr>
-        #    <td width="223"><div align="center"><strong>Filmes com legendas encontrados:</strong></div></td>
-        #</tr>
-        #<tr>
-        #    <td>
-        #        <div align="center">
-        #            <a href="index.php?opcao=buscarlegenda&filme=28008" onMouseOver="this.T_OPACITY=95; this.T_OffsetY=30; this.T_WIDTH=150; return escape('<div align=\'center\'><img align=\'center\' src=\'thumbs/6ef0be5de6f424af7aa59a8040d0363d.jpg\'></div>');">WWE Randy Orton: The Evolution Of A Predator (2011)</a>
-        #        </div>
-        #    </td>
-        #</tr>
-        for e in tree.xpath(".//*[@class='filmresult']//a"):
-            movie = {}
-            movie.update(re.search(self._re_movie_text, e.text).groupdict())
-            movie.update(re.search(self._re_movie_data,
-                                   html.tostring(e)).groupdict())
-            fields_to_int(movie, 'id', 'year')
-            if g.options['cache']: self.cache(movie['thumb'])
+        # [{u'Filme': {u'id_filme':    u'20389',
+        #              u'dsc_nome':    u'Wu long tian shi zhao ji gui',
+        #              u'dsc_nome_br': u'Kung Fu Zombie',
+        #              u'dsc_imagen':  u'tt199148.jpg'}},]
+        for e in tree:
+            item = e['Filme']
+            movie = dict(
+                id       = int(item['id_filme']),
+                title    = item['dsc_nome'],
+                title_br = item['dsc_nome_br'],
+                thumb    = item['dsc_imagen'],
+            )
+            if movie['thumb']:
+                movie['thumb'] = 'img/poster/' + movie['thumb']
+                if g.options['cache']:
+                    self.cache(movie['thumb'])
             movies.append(movie)
 
         print_debug("Titles found for '%s':\n%s" % (text,

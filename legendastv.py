@@ -60,7 +60,6 @@ def run_demo():
     ltv = legendastv.LegendasTV(g.options['login'], g.options['password'])
     movies = ltv.getMovies(search)
     if movies:
-        ltv.getMovieDetails(movies[0])
         ltv.getSubtitleDetails(ltv.getSubtitlesByText(search)[0]['hash'])
 
 
