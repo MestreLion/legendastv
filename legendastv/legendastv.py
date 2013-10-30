@@ -367,11 +367,11 @@ class LegendasTV(HttpBot):
         if not (self.login and self.password):
             return
 
-        url = "login_verificar.php"
+        url = "login"
         log.info("Logging into %s as %s", self.base_url + url, self.login)
 
-        self.get(url, {'txtLogin': self.login,
-                       'txtSenha': self.password})
+        self.get(url, {'data[User][username]': self.login,
+                       'data[User][password]': self.password})
 
     def _searchdata(self, text, type=None, lang=None):
         """ Helper for the website's search form. Return a dict suitable for
