@@ -140,7 +140,8 @@ def fields_to_int(dict, *keys):
         usage: int_fields(mydict, 'keyA', 'keyB', 'keyD')
     """
     for key in keys:
-        dict[key] = int(dict[key])
+        if dict[key] is not None:
+            dict[key] = int(dict[key])
 
 def get_similarity(text1, text2, ignorecase=True):
     """ Returns a float in [0,1] range representing the similarity of 2 strings
@@ -356,6 +357,11 @@ class HttpBot(object):
         else:
             return (self.download(url, g.globals['cache_dir']))
 
+    def quote(self, text):
+        """ Quote a text for URL usage, similar to urllib.quote_plus.
+            Handles unicode and also encodes "/"
+        """
+        return urllib.quote_plus(text.encode('utf-8'), safe='')
 
 class LegendasTV(HttpBot):
 
@@ -392,8 +398,7 @@ class LegendasTV(HttpBot):
         """
         movies = []
 
-        tree = json.load(self.get("util/busca_titulo/" +
-                                  urllib.quote(text.encode('utf-8'), safe='')))
+        tree = json.load(self.get("util/busca_titulo/" + self.quote(text)))
 
         # [{u'Filme': {u'id_filme':    u'20389',
         #              u'dsc_nome':    u'Wu long tian shi zhao ji gui',
@@ -408,7 +413,7 @@ class LegendasTV(HttpBot):
                 thumb    = item['dsc_imagen'],
             )
             if movie['thumb']:
-                movie['thumb'] = 'img/poster/' + movie['thumb']
+                movie['thumb'] = "/img/poster/" + movie['thumb']
                 if g.options['cache']:
                     self.cache(movie['thumb'])
             movies.append(movie)
@@ -481,7 +486,7 @@ class LegendasTV(HttpBot):
         return self.getSubtitles(text=text, type=type,
                                  lang=lang, allpages=allpages)
 
-    _re_sub_language = re.compile(r"flag_(\w+)\.")
+    _re_sub_language = re.compile(r"idioma/\w+_(\w+)\.")
     _re_sub_text = re.compile(r"""gpop\(.*
         #'(?P<title>.*)',
         #'(?P<title_br>.*)',
@@ -513,62 +518,49 @@ class LegendasTV(HttpBot):
         """
         subtitles = []
 
-        url = "index.php?opcao=buscarlegenda"
+        url = "/util/carrega_legendas_busca/"
         if movie_id:
-            url +=  "&filme=" + str(movie_id)
-            text = ".." # Irrelevant to search, but must have at least 2 chars
-
-        # Post data is saved on server, along with session data,
-        # so it must be posted at least once, even when searching by movie_id
-        postdata = self._searchdata(text, type, lang)
+            url += "id_filme:" + str(movie_id)
+        else:
+            url += "termo:" + self.quote(text)
 
         page = 0
         lastpage = False
         while not lastpage:
             page += 1
-            tree = html.parse(self.get(url, postdata))
+            log.debug("loading %s", url)
+            tree = html.parse(self.get(url))
 
-            #<span onmouseover="this.T_OPACITY=95; this.T_WIDTH=400; return escape(gpop('Predators','Predadores','Predators.2010.R5.LiNE.XviD-Noir','1','23','1370MB','30655','<img src=\'images/flag_br.gif\' border=\'0\'>','26/09/2010 - 12:02'))">
-            #<table width="100%" onclick="javascript:abredown('9563521bbb4041f77223e04c1dc47d02');" class="buscaDestaque" bgcolor="#F7D36A">
-            #  <tr>
-            #    <td rowspan="2" scope="col" style="width:5%"><img src="images/gold.gif" border="0"></td>
-            #    <td scope="col" style="width:45%" class="mais"><b>Predators</b><br />Predadores<br/><b>Downloads: </b> 30655 <b>Comentários: </b>160<br><b>Avaliação: </b> 10/10</td>
-            #    <td scope="col" style="width:20%">26/09/2010 - 12:02</td>
-            #    <td scope="col" style="width:20%"><a href="javascript:abreinfousuario(577204)">inSanos</a></td>
-            #    <td scope="col" style="width:10%"><img src='images/flag_br.gif' border='0'></td>
-            #  </tr>
-            #  <tr>
-            #    <td colspan="4">Release: <span class="brls">Predators.2010.R5.LiNE.XviD-Noir</span></td>
-            #  </tr>
-            #</table>
-            #</span>
-            for e in tree.xpath(".//*[@id='conteudodest']/*/span"):
+            # <div class="">
+            #     <span class="number number_2">35</span>
+            #     <div class="f_left">
+            #         <p><a href="/download/c0c4d6418a3474b2fb4e9dae3f797bd4/Gattaca/gattaca_dvdrip_divx61_ac3_sailfish">gattaca_dvdrip_divx61_ac3_(sailfish)</a></p>
+            #         <p class="data">1210 downloads, nota 10, enviado por <a href="/usuario/SuperEly">SuperEly</a> em 02/11/2006 - 16:13 </p>
+            #     </div>
+            #     <img src="/img/idioma/icon_brazil.png" alt="Portugu&#195;&#170;s-BR" title="Portugu&#195;&#170;s-BR">
+            # </div>
+            for e in tree.xpath(".//article/div"):
                 data = e.xpath(".//text()")
-                htmltext = html.tostring(e)
-                sub = {}
-                sub.update(dict(
-                    title       = data[ 1],
-                    title_br    = data[ 2],
-                    downloads   = data[ 4],
-                    comments    = data[ 6],
-                    rating      = data[ 8].split("/")[0].strip(),
-                    date        = data[10],
-                    user_name   = data[12],
-                    release     = data[16],
-                ))
-                sub.update(re.search(self._re_sub_text, htmltext).groupdict())
-                fields_to_int(sub, 'downloads', 'comments', 'cds',
-                                   'fps', 'size', 'user_id')
+                dataurl = e.xpath(".//a")[0].attrib['href'].split('/')
+                dataline = data[2].split(' ')
+                sub = dict(
+                    hash        = dataurl[2],
+                    title       = dataurl[3],
+                    downloads   = dataline[0],
+                    rating      = dataline[3][:-1] or None,
+                    date        = data[4].strip()[3:],
+                    user_name   = data[3],
+                    release     = data[1],
+                    pack        = e.attrib['class'] == 'pack',
+                    highlight   = e.attrib['class'] == 'destaque',
+                    flag        = e.xpath("./img")[0].attrib['src']
+                )
+                fields_to_int(sub, 'downloads', 'rating')
                 sub['language'] = re.search(self._re_sub_language,
                                             sub['flag']).group(1)
-                sub['gold'] = ("images/gold.gif" in htmltext)
-                sub['highlight'] = ("buscaDestaque" in htmltext)
                 sub['date'] = datetime.strptime(sub['date'], '%d/%m/%Y - %H:%M')
-                if sub['release'].startswith("(p)"):
+                if sub['release'].startswith("(p)") and sub['pack']:
                     sub['release'] = sub['release'][3:]
-                    sub['pack'] = True
-                else:
-                    sub['pack'] = False
 
                 if g.options['cache']: self.cache(sub['flag'])
                 subtitles.append(sub)
@@ -577,13 +569,9 @@ class LegendasTV(HttpBot):
             if not allpages:
                 lastpage = True
             else:
-                prevnext = tree.xpath("//a[@class='btavvt']")
-                if len(prevnext) > 1:
-                    # bug at page 9: url for next page points to current page,
-                    # so we need to manually fix it
-                    url = prevnext[1].attrib['href'].replace("pagina=" + str(page),
-                                                             "pagina=" + str(page+1))
-                    postdata = "" # must not post data for pages > 1
+                next = tree.xpath("//a[@class='load_more']")
+                if next:
+                    url = next[0].attrib['href']
                 else:
                     lastpage = True
 
