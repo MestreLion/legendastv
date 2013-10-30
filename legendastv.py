@@ -50,7 +50,7 @@ from __future__ import unicode_literals, absolute_import
 import os, sys
 import logging.handlers
 
-from legendastv import g, legendastv
+from legendastv import g, filetools, legendastv
 
 def run_demo():
     # API tests
@@ -110,11 +110,6 @@ if __name__ == "__main__":
                 else os.path.expanduser("~/Videos/CSI/Season 12/"
                                         "CSI.S12E19.720p.HDTV.X264-DIMENSION.mkv"))
 
-    videos = ['.3gpp', '.asf', '.asx', '.avi', '.divx', '.cam', '.flc','.fli',
-              '.flv', '.h264', '.m2ts', '.mkv', '.mov', '.mp4', '.mpeg',
-              '.mpg', '.mpv', '.ogg', '.ogm', ',ogv', '.rm', '.rmvb', '.swf',
-              '.ts', '.vid', '.vob', '.wmv', '.x264', '.xvid' ]
-
     try:
         if os.path.isdir(filename):
             # Its a dir, so log in just once and loop its files
@@ -122,8 +117,8 @@ if __name__ == "__main__":
             ltv = legendastv.LegendasTV()
             for root, subFolders, files in os.walk(filename):
                 for video in files:
-                    if os.path.splitext(video)[1] in videos:
-                        videofile = os.path.join(root, video)
+                    videofile = os.path.join(root, video)
+                    if filetools.is_video(videofile):
                         legendastv.retrieve_subtitle_for_movie(videofile,
                                                                legendastv=ltv)
 
