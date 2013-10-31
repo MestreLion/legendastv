@@ -42,16 +42,16 @@ log = logging.getLogger(__name__)
 
 
 # Languages [and flag names (language "codes")]:
-#  1 * Português-BR (Brazilian Portuguese) [br]
-#  2 * Inglês (English) [us]
-#  3 * Espanhol (Spanish) [es]
+#  1 - Português-BR (Brazilian Portuguese) [brazil]
+#  2 - Inglês (English) [usa]
+#  3 - Espanhol (Spanish) [es]
 #  4 - Francês (French) [fr]
 #  5 - Alemão (German) [de]
 #  6 - Japonês (Japanese) [japao]
 #  7 - Dinamarquês (Danish) [denmark]
 #  8 - Norueguês (Norwegian) [norway]
 #  9 - Sueco (Swedish) [sweden]
-# 10 * Português-PT (Iberian Portuguese) [pt]
+# 10 - Português-PT (Iberian Portuguese) [pt]
 # 11 - Árabe (Arabic) [arabian]
 # 12 - Checo (Czech) [czech]
 # 13 - Chinês (Chinese) [china]
@@ -60,48 +60,10 @@ log = logging.getLogger(__name__)
 # 16 - Italiano (Italian) [it]
 # 17 - Polonês (Polish) [poland]
 
-# In search form, only languages marked with "*" are available.
-# Search extra options are:
-#100 - Others (the ones not marked with "*")
-# 99 - All
-
 # Search Type:
-# 1 - Release (movie "release", usually the torrent/file title)
-# 2 - Filme (movie title, searches for both original and translated title)
-# 3 - Usuario (subtitle uploader username)
-
-
-# CDs: 0, 1, 2, 3, 4, 5
-# FPS: 0, 23, 24, 25, 29, 60
-
-# Genre:
-# 15 - Ação
-# 16 - Animação
-# 17 - Aventura
-# 34 - Clássico
-# 14 - Comédia
-# 32 - Desenho Animado
-# 28 - Documentário
-# 30 - Drama
-# 33 - Épico
-# 20 - Erótico
-# 21 - Fantasia
-# 22 - Faroeste
-# 35 - Ficção
-# 27 - Ficção Científica
-# 23 - Guerra
-# 11 - Horror
-#  1 - Indefinido
-# 31 - Infantil
-# 24 - Musical
-# 25 - Policial
-# 12 - Romance
-# 36 - Seriado
-# 37 - Show
-# 26 - Suspense
-# 38 - Terror
-# 40 - Thriller
-# 39 - Western
+# <blank> - All subtitles
+# d       - Destaque (Highlighted subtitles only)
+# p       - Pack (Subtitle packs only, usually for series seasons)
 
 def notify(body, summary='', icon=''):
 
@@ -474,11 +436,11 @@ class LegendasTV(HttpBot):
 
     """ Convenience wrappers for the main getSubtitles method """
 
-    def getSubtitlesByMovie(self, movie, lang=None, allpages=True):
+    def getSubtitlesByMovie(self, movie, type=None, lang=None, allpages=True):
         return self.getSubtitles(movie_id=movie['id'],
                                  lang=lang, allpages=allpages)
 
-    def getSubtitlesByMovieId(self, movie_id, lang=None, allpages=True):
+    def getSubtitlesByMovieId(self, movie_id, type=None, lang=None, allpages=True):
         return self.getSubtitles(movie_id=movie_id,
                                  lang=lang, allpages=allpages)
 
@@ -518,11 +480,11 @@ class LegendasTV(HttpBot):
         """
         subtitles = []
 
-        url = "/util/carrega_legendas_busca/"
-        if movie_id:
-            url += "id_filme:" + str(movie_id)
-        else:
-            url += "termo:" + self.quote(text.strip())
+        url = "/util/carrega_legendas_busca"
+        if movie_id:  url += "/id_filme:"  + str(movie_id)
+        else:         url += "/termo:"     + self.quote(text.strip())
+        if type:      url += "/sel_tipo:"  + type
+        if lang:      url += "/id_idioma:" + str(lang)
 
         page = 0
         lastpage = False
