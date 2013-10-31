@@ -522,7 +522,7 @@ class LegendasTV(HttpBot):
         if movie_id:
             url += "id_filme:" + str(movie_id)
         else:
-            url += "termo:" + self.quote(text)
+            url += "termo:" + self.quote(text.strip())
 
         page = 0
         lastpage = False
@@ -776,35 +776,20 @@ def retrieve_subtitle_for_movie(usermovie, login=None, password=None,
         notify("Searching for '%s'" % movie['title'],
                icon=g.globals['appicon'])
 
-    if len(movie['title']) >= 2:
-        movies = legendastv.getMovies(movie['title'], 2)
-    else:
-        # quite a corner case, but still... title + year on release
-        movies = legendastv.getMovies("%s %s" % (movie['title'],
-                                                 movie['year']), 1) + \
-                 legendastv.getMovies("%s %s" % (movie['title'],
-                                                 movie['year']), 2)
+    movies = legendastv.getMovies(movie['title'])
 
     if len(movies) > 0:
         # Nice! Lets pick the best movie...
         notify("%s titles found" % len(movies))
         for m in movies:
-            # Fist, clean up title...
-            title = clean_string(m['title'])
-            if title.endswith(" %s" % m['year']):
-                title = title[:-5]
-
-            # Now add a helper field
-            m['search'] = "%s %s" % (title, m['year'])
+            # Add a helper field: cleaned-up title
+            m['search'] = clean_string(m['title'])
 
         # May the Force be with... the most similar!
-        result = choose_best_by_key("%s %s" % (movie['title'],
-                                               movie['year']),
-                                    movies,
-                                    'search')
+        result = choose_best_by_key(clean_string(movie['title']), movies, 'search')
 
-        # But... Is it really similar? Maybe results were capped at 10
-        if result['similarity'] > g.options['similarity'] or len(movies)<10:
+        # But... Is it really similar?
+        if result['similarity'] > g.options['similarity']:
             movie.update(result['best'])
 
             if movie['type'] == 'episode':
@@ -815,8 +800,7 @@ def retrieve_subtitle_for_movie(usermovie, login=None, password=None,
                        icon=os.path.join(g.globals['cache_dir'],
                                          os.path.basename(result['best']['thumb'])))
             else:
-                notify("Searching title '%s' (%s)" % (result['best']['title'],
-                                                      result['best']['year']),
+                notify("Searching title '%s'" % (result['best']['title']),
                        icon=os.path.join(g.globals['cache_dir'],
                                          os.path.basename(result['best']['thumb'])))
 
@@ -827,12 +811,12 @@ def retrieve_subtitle_for_movie(usermovie, login=None, password=None,
             notify("None was similar enough. Trying release...")
             subs = legendastv.getSubtitlesByText("%s %s" %
                                                  (movie['title'],
-                                                  movie['year']), 1)
+                                                  movie.get('year',"")))
 
     else:
         # Ok, let's try by release...
         notify("No titles found. Trying release...")
-        subs = legendastv.getSubtitlesByText(movie['title'], 1)
+        subs = legendastv.getSubtitlesByText(movie['title'])
 
     if len(subs) > 0:
 
