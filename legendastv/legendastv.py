@@ -649,29 +649,22 @@ class LegendasTV(HttpBot):
         """ Evaluates each subtitle based on wanted movie and give each a score.
             Return the list sorted by score, greatest first
         """
-        # Idea for a improvements on ranking system (points):
-        # 2 - Number of CDs (1 for 0, 2 for exact, 0 for wrong)
-        # 2 - Size +-15% (1 for 0/1MB, 0 for wrong)
 
         def days(d):
             return (datetime.today() - d).days
 
-        max_comments = max([s['comments'] for s in subtitles])
         oldest = days(min([s['date'] for s in subtitles]))
         newest = days(max([s['date'] for s in subtitles]))
 
         for sub in subtitles:
             score = 0
 
-            score += 10 * max(get_similarity(movie['title'],sub['title']),
-                              get_similarity(movie['title'],sub['title_br']))
-            score +=  3 * 1 if sub['gold'] else 0
-            score +=  1 * 1 if sub['highlight'] else 0
-            score +=  2 * get_similarity(movie['release'],
+            score += 10 * get_similarity(clean_string(movie['title']),
+                                         clean_string(sub['title']))
+            score +=  3 * 1 if sub['highlight'] else 0
+            score +=  5 * get_similarity(movie['release'],
                                          clean_string(sub['release']))
-            score +=  1 * (int(sub['rating'])/10 if sub['rating'].isdigit()
-                                                 else 1)
-            score +=  2 * (sub['comments']/max_comments)
+            score +=  1 * (sub['rating']/10 if sub['rating'] is not None else 0.8)
             score +=  1 * (1 - ( (days(sub['date'])-newest)/(oldest-newest)
                                  if oldest != newest
                                  else 0 ))
