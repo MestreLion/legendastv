@@ -641,7 +641,7 @@ class LegendasTV(HttpBot):
             Return the filename (with full path) of the downloaded archive
         """
         print_debug("Downloading archive for subtitle '%s'" % hash)
-        result = self.download('info.php?c=1&d=' + hash, dir, basename)
+        result = self.download('downloadarquivo/' + hash, dir, basename)
         print_debug("Archive saved as '%s'" % (result))
         return result
 
