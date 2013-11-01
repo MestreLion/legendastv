@@ -280,7 +280,7 @@ class HttpBot(object):
         self._opener = urllib2.build_opener(urllib2.HTTPCookieProcessor())
         self.base_url = base_url
 
-    def get(self, url, postdata=""):
+    def get(self, url, postdata=None):
         """ Send an HTTP request, either GET (if no postdata) or POST
             Keeps session and other cookies.
             postdata is a dict with name/value pairs
@@ -323,7 +323,16 @@ class HttpBot(object):
         """ Quote a text for URL usage, similar to urllib.quote_plus.
             Handles unicode and also encodes "/"
         """
-        return urllib.quote_plus(text.encode('utf-8'), safe='')
+        if isinstance(text, unicode):
+            text = text.encode('utf-8')
+        return urllib.quote_plus(text, safe=b'')
+
+    def parse(self, url, postdata=None):
+        """ Parse an URL and return an etree ElementRoot.
+            Assumes UTF-8 encoding
+        """
+        return html.parse(self.get(url, postdata),
+                          parser=html.HTMLParser(encoding='utf-8'))
 
 class LegendasTV(HttpBot):
 
@@ -491,7 +500,7 @@ class LegendasTV(HttpBot):
         while not lastpage:
             page += 1
             log.debug("loading %s", url)
-            tree = html.parse(self.get(url))
+            tree = self.parse(url)
 
             # <div class="">
             #     <span class="number number_2">35</span>
