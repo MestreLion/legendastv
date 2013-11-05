@@ -20,13 +20,13 @@
 
 from __future__ import unicode_literals, absolute_import
 
+from . import g
+
 __author__  = 'MestreLion <linux@rodrigosilva.com>'
-__version__ = '0.1'
+__version__ = g.globals['version']
 __all__     = []
 
 import logging
-
-from . import g
 
 def _add_global_custom_level(level, name):
 

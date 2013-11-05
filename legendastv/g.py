@@ -32,6 +32,8 @@ globals = {
 
     'apptitle'  : "Legendas.TV",
 
+    'version'   : "1.0",
+
     'notifier'  : None,
 }
 globals.update({
