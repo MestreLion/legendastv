@@ -69,6 +69,7 @@ options = {
     'cache'         : True,
     'similarity'    : 0.7,
     'notifications' : True,
+    'language'      : "pb",
 }
 
 def read_config():

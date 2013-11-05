@@ -23,11 +23,16 @@ from __future__ import unicode_literals
 import xmlrpclib
 import struct
 import os
+import json
+import time
 import logging
 
 log = logging.getLogger(__name__)
 
 import g
+
+languages_cache = os.path.join(g.globals['cache_dir'],
+                               "languages_%s.json" % __name__.rpartition(".")[2])
 
 
 class OpenSubtitlesError(Exception):
@@ -53,9 +58,14 @@ class Osdb(object):
             self.token = None
 
 
+    def GetSubLanguages(self, language=None):
+        if language is None:
+            language = self.language
+        return self._osdb_call("GetSubLanguages", language)
+
+
     def __enter__(self): return self
     def __exit__(self, *args): self.LogOut()
-    def __del__(self): self.LogOut()
 
 
     def _osdb_call(self, name, *args):
@@ -94,6 +104,45 @@ class Osdb(object):
 class OpenSubtitles(Osdb, g.Provider):
     name = "OpenSubtitles.org"
     url = "http://www.opensubtitles.org"
+
+    def getLanguages(self, language="en"):
+        # reading from cache
+        cache = {}
+        try:
+            # cache must exist and be fresh (30 days)
+            if os.path.getmtime(languages_cache) > time.time() - 60*60*24*30:
+                # be accessible and readable
+                with open(languages_cache) as f:
+                    # be a valid json file
+                    cache = json.load(f)
+                    # and must contain the specified language
+                    languages = cache[language]
+                    log.debug("loading languages from cache")
+                    return languages
+        except (OSError, IOError, ValueError, KeyError):
+            pass
+
+        # cache failed, retrieve from server
+        langs = self.GetSubLanguages(language)
+
+        log.debug("updating languages cache")
+        languages = {}
+        for lang in langs:
+            if lang['ISO639']:
+                languages.update({lang['ISO639']:{'id'  : lang['SubLanguageID'],
+                                                  'name': lang['LanguageName']}})
+
+        # save the cache
+        try:
+            with open(languages_cache, 'w') as f:
+                # update the cache with retrieved language data
+                cache.update({language: languages})
+                json.dump(cache, f, sort_keys=True, indent=2, separators=(',', ':'))
+        except IOError:
+            pass
+
+        # return from json.load() to guarantee it will be identical as cache read
+        return json.loads(json.dumps(languages))
 
 
 
