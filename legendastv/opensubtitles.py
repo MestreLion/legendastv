@@ -21,7 +21,8 @@
 from __future__ import unicode_literals
 
 import xmlrpclib
-import struct, os
+import struct
+import os
 import logging
 
 log = logging.getLogger(__name__)
@@ -90,6 +91,13 @@ class Osdb(object):
 
 
 
+class OpenSubtitles(Osdb, g.Provider):
+    name = "OpenSubtitles.org"
+    url = "http://www.opensubtitles.org"
+
+
+
+
 def videohash(filename):
 
     block = 65536
@@ -123,7 +131,7 @@ def videoinfo(filename, osdb=None):
 
 if __name__ == "__main__":
 
-    import sys, os.path as osp
+    import sys
 
     logging.basicConfig(level=logging.DEBUG)
 
@@ -133,7 +141,7 @@ if __name__ == "__main__":
         osdb.GetSubLanguages('pb')
 
         for path in sys.argv[1:]:
-            if osp.isfile(path):
+            if os.path.isfile(path):
                 print
                 print path
                 print videohash(path)

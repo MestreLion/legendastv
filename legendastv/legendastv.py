@@ -338,10 +338,13 @@ class HttpBot(object):
         return html.parse(self.get(url, postdata),
                           parser=html.HTMLParser(encoding='utf-8'))
 
-class LegendasTV(HttpBot):
+class LegendasTV(HttpBot, g.Provider):
+
+    name = "Legendas.TV"
+    url = "http://legendas.tv"
 
     def __init__(self, login=None, password=None):
-        super(LegendasTV, self).__init__("http://legendas.tv/")
+        super(LegendasTV, self).__init__(self.url)
 
         self.login    = login    or g.options['login']
         self.password = password or g.options['password']
