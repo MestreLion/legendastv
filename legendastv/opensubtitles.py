@@ -40,12 +40,21 @@ class Osdb(object):
 
 
     def LogIn(self, username="", password="", language=""):
-        self.token = self._osdb_call("LogIn", username, password, language,
+        self.username = username
+        self.language = language
+        self.token = self._osdb_call("LogIn", self.username, password, self.language,
                                      "Legendas.TV v%s" % g.globals['version'])
 
 
-    def __del__(self):
-        self.LogOut()
+    def LogOut(self):
+        if self.token:
+            self._osdb_call("LogOut")
+            self.token = None
+
+
+    def __enter__(self): return self
+    def __exit__(self, *args): self.LogOut()
+    def __del__(self): self.LogOut()
 
 
     def _osdb_call(self, name, *args):
@@ -56,12 +65,12 @@ class Osdb(object):
         # Do the XML-RPC call
         res = getattr(self.osdb, name)(*args)
         log.debug("OSDB.%s%r -> %r",
-                  name, args[:2] + ('***',) + args[3:] if name == "LogIn" else args, res)
+                  name, args[:1] + ('***',) + args[2:] if name == "LogIn" else args, res)
 
         # Check for result error status
         if res.has_key('status') and not res['status'].startswith("200"):
-            raise OpenSubtitlesError("Error using OpenSubtitles API: %s%r -> %s" %
-                                     (name, args, res['status']))
+            raise OpenSubtitlesError("OpenSubtitles API Error in '%s': %s" %
+                                     (name, res['status']))
 
         # Remove redundant or irrelevant data fields
         for k in ['status', 'seconds']:
