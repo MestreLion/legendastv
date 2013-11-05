@@ -18,16 +18,68 @@
 #
 # Helper functions to wrap OpenSubtitles.org API
 
-from __future__ import unicode_literals, absolute_import, division
+from __future__ import unicode_literals
 
 import xmlrpclib
-import struct, os, sys
+import struct, os
 import logging
 
 log = logging.getLogger(__name__)
 
+import g
+
+
 class OpenSubtitlesError(Exception):
     pass
+
+
+class Osdb(object):
+    def __init__(self, username="", password="", language=""):
+        self.osdb = xmlrpclib.ServerProxy('http://api.opensubtitles.org/xml-rpc')
+        self.LogIn(username, password, language)
+
+
+    def LogIn(self, username="", password="", language=""):
+        self.token = self._osdb_call("LogIn", username, password, language,
+                                     "Legendas.TV v%s" % g.globals['version'])
+
+
+    def __del__(self):
+        self.LogOut()
+
+
+    def _osdb_call(self, name, *args):
+        # Insert token as first argument for methods that require it
+        if name not in ['ServerInfo', 'LogIn', 'GetSubLanguages']:
+            args = (self.token,) + args
+
+        # Do the XML-RPC call
+        res = getattr(self.osdb, name)(*args)
+        log.debug("OSDB.%s%r -> %r",
+                  name, args[:2] + ('***',) + args[3:] if name == "LogIn" else args, res)
+
+        # Check for result error status
+        if res.has_key('status') and not res['status'].startswith("200"):
+            raise OpenSubtitlesError("Error using OpenSubtitles API: %s%r -> %s" %
+                                     (name, args, res['status']))
+
+        # Remove redundant or irrelevant data fields
+        for k in ['status', 'seconds']:
+            res.pop(k, None)
+
+        # if remaining response has a single field (most likely 'data'),
+        # return that field's value directly ("un-dict" the response)
+        if len(res) == 1:
+            return res.popitem()[1]
+        else:
+            return res
+
+
+    def __getattr__(self, name):
+        return lambda *args: self._osdb_call(name, *args)
+
+
+
 
 def videohash(filename):
 
@@ -47,34 +99,37 @@ def videohash(filename):
         except (IOError, struct.error):
             raise OpenSubtitlesError("File '%s' must be at least %d bytes" %
                                      (filename, block))
-    return "%016x" % hash
+    return b"%016x" % hash
 
 
-def videoinfo(filename):
-    osdb = xmlrpclib.ServerProxy('http://api.opensubtitles.org/xml-rpc')
-    token = osdb.LogIn('','','',"Legendas.TV v0.1")
-
-    if token['status'].startswith('200'):
-        token = token['token']
-    else:
-        raise OpenSubtitlesError("Error accessing OpenSubtitles API: %s" %
-                                 token['status'])
-
+def videoinfo(filename, osdb=None):
+    if osdb is None:
+        osdb = Osdb()
     hash = videohash(filename)
-    result = osdb.CheckMovieHash2(token, [hash])
-    return result['data'][hash] if result['data'] else []
+    result = osdb.CheckMovieHash2([hash])
+    return result[hash] if result else []
+
+
 
 
 if __name__ == "__main__":
 
-    # scrap area, for tests
+    import sys, os.path as osp
 
-    # User selects a movie by filename...
-    filename = (unicode(sys.argv[1], "utf-8")
-                if len(sys.argv) > 1
-                else os.path.expanduser("~/Videos/Revolution OS.avi"))
+    logging.basicConfig(level=logging.DEBUG)
+
     try:
-        for movie in videoinfo(filename):
-            print movie
-    except (OpenSubtitlesError, OSError) as e:
-        print e
+        osdb = Osdb()
+        osdb.ServerInfo()
+        osdb.GetSubLanguages('pb')
+
+        for path in sys.argv[1:]:
+            if osp.isfile(path):
+                print
+                print path
+                print videohash(path)
+                for movie in videoinfo(path, osdb):
+                    print movie
+                    videoinfo(path, osdb)
+    except OpenSubtitlesError as e:
+        log.error(e)
