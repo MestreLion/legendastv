@@ -791,7 +791,7 @@ def retrieve_subtitle_for_movie(usermovie, login=None, password=None,
     else:
         # Ok, let's try by release...
         notify("No titles found. Trying release...")
-        subs = legendastv.getSubtitlesByText(movie['title'])
+        subs = legendastv.getSubtitlesByText(movie['release'])
 
     if len(subs) > 0:
 
