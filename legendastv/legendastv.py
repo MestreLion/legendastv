@@ -26,6 +26,7 @@ import re
 import dbus
 import urllib
 import urllib2
+import urlparse
 import difflib
 import zipfile
 import operator
@@ -278,19 +279,22 @@ class HttpBot(object):
     """
     def __init__(self, base_url=""):
         self._opener = urllib2.build_opener(urllib2.HTTPCookieProcessor())
-        self.base_url = base_url
+        scheme, netloc, path, q, f  = urlparse.urlsplit(base_url, "http")
+        if not netloc:
+            netloc, _, path = path.partition('/')
+        self.base_url = urlparse.urlunsplit((scheme, netloc, path, q, f))
 
     def get(self, url, postdata=None):
         """ Send an HTTP request, either GET (if no postdata) or POST
             Keeps session and other cookies.
             postdata is a dict with name/value pairs
-            url must be relative to base_url
+            url can be absolute or relative to base_url
         """
+        url = urlparse.urljoin(self.base_url, url)
         if postdata:
-            return self._opener.open(self.base_url + url,
-                                     urllib.urlencode(postdata))
+            return self._opener.open(url, urllib.urlencode(postdata))
         else:
-            return self._opener.open(self.base_url + url)
+            return self._opener.open(url)
 
     def download(self, url, dir, filename=""):
         download = self.get(url)
@@ -345,7 +349,7 @@ class LegendasTV(HttpBot):
         if not (self.login and self.password):
             return
 
-        url = "login"
+        url = "/login"
         log.info("Logging into %s as %s", self.base_url + url, self.login)
 
         self.get(url, {'data[User][username]': self.login,
@@ -369,7 +373,7 @@ class LegendasTV(HttpBot):
         """
         movies = []
 
-        tree = json.load(self.get("util/busca_titulo/" + self.quote(text)))
+        tree = json.load(self.get("/util/busca_titulo/" + self.quote(text)))
 
         # [{u'Filme': {u'id_filme':    u'20389',
         #              u'dsc_nome':    u'Wu long tian shi zhao ji gui',
@@ -612,7 +616,7 @@ class LegendasTV(HttpBot):
             Return the filename (with full path) of the downloaded archive
         """
         print_debug("Downloading archive for subtitle '%s'" % hash)
-        result = self.download('downloadarquivo/' + hash, dir, basename)
+        result = self.download('/downloadarquivo/' + hash, dir, basename)
         print_debug("Archive saved as '%s'" % (result))
         return result
 
