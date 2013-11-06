@@ -29,6 +29,7 @@ import urlparse
 import operator
 import logging
 import json
+import time
 from lxml import html
 from datetime import datetime
 
@@ -37,25 +38,6 @@ from . import Provider
 
 log = logging.getLogger(__name__)
 
-
-# Languages [and flag names (language "codes")]:
-#  1 - Português-BR (Brazilian Portuguese) [brazil]
-#  2 - Inglês (English) [usa]
-#  3 - Espanhol (Spanish) [es]
-#  4 - Francês (French) [fr]
-#  5 - Alemão (German) [de]
-#  6 - Japonês (Japanese) [japao]
-#  7 - Dinamarquês (Danish) [denmark]
-#  8 - Norueguês (Norwegian) [norway]
-#  9 - Sueco (Swedish) [sweden]
-# 10 - Português-PT (Iberian Portuguese) [pt]
-# 11 - Árabe (Arabic) [arabian]
-# 12 - Checo (Czech) [czech]
-# 13 - Chinês (Chinese) [china]
-# 14 - Coreano (Corean) [korean]
-# 15 - Búlgaro (Bulgarian) [be]
-# 16 - Italiano (Italian) [it]
-# 17 - Polonês (Polish) [poland]
 
 # Search Type:
 # <blank> - All subtitles
@@ -152,6 +134,72 @@ class LegendasTV(HttpBot, Provider):
         self.get(url, {'data[User][username]': self.login,
                        'data[User][password]': self.password})
 
+
+    languages = dict(
+        pb = dict(id= 1, code="brazil",  name="Português-BR"),
+        en = dict(id= 2, code="usa",     name="Inglês"),
+        es = dict(id= 3, code="es",      name="Espanhol"),
+        fr = dict(id= 4, code="fr",      name="Francês"),
+        de = dict(id= 5, code="de",      name="Alemão"),
+        ja = dict(id= 6, code="japao",   name="Japonês"),
+        da = dict(id= 7, code="denmark", name="Dinamarquês"),
+        no = dict(id= 8, code="norway",  name="Norueguês"),
+        sv = dict(id= 9, code="sweden",  name="Sueco"),
+        pt = dict(id=10, code="pt",      name="Português-PT"),
+        ar = dict(id=11, code="arabian", name="Árabe"),
+        cs = dict(id=12, code="czech",   name="Checo"),
+        zh = dict(id=13, code="china",   name="Chinês"),
+        ko = dict(id=14, code="korean",  name="Coreano"),
+        bg = dict(id=15, code="be",      name="Búlgaro"),
+        it = dict(id=16, code="it",      name="Italiano"),
+        pl = dict(id=17, code="poland",  name="Polonês"),
+    )
+
+    def getLanguages(self, language=None):
+        # reading from cache
+        cachefile = os.path.join(g.globals['cache_dir'],
+                                 "languages_%s.json" % __name__.rpartition(".")[2])
+        try:
+            # cache must exist and be fresh (30 days)
+            if os.path.getmtime(cachefile) > time.time() - 60*60*24*30:
+                # be accessible and readable
+                with open(cachefile) as f:
+                    # be a valid json file
+                    self.languages.update(json.load(f))
+                    log.debug("loading languages from cache")
+                    return self.languages
+        except (OSError, IOError, ValueError, KeyError):
+            pass
+
+        # cache failed, retrieve from server
+        url = "/busca?q=" + self.quote("'")
+        tree = self.parse(url)
+
+        log.debug("updating languages cache")
+        for e in tree.xpath(".//select[@name='data[id_idioma]']/option"):
+            id, name = int("0%s" % e.attrib['value']), e.text
+            if id:
+                for lang, value in self.languages.iteritems():
+                    if value['id'] == id:
+                        if not value['name'] == name:
+                            log.debug("Updating language '%s' (%d): '%s' -> '%s'",
+                                      lang, id, value['name'], name)
+                            self.languages[lang].update({'name': name})
+                        break
+                else:
+                    log.warn("Language not found: %d - '%s'", id, name)
+
+        # save the cache
+        try:
+            with open(cachefile, 'w') as f:
+                json.dump(self.languages, f, sort_keys=True, indent=2, separators=(',', ':'))
+        except IOError:
+            pass
+
+        # return from json.load() to guarantee it will be identical as cache read
+        return json.loads(json.dumps(self.languages))
+
+
     def getMovies(self, text):
         """ Given a search text, return a list of dicts with basic movie info:
             id, title, title_br, thumb (relative url for a thumbnail image)
@@ -239,7 +287,7 @@ class LegendasTV(HttpBot, Provider):
             #         <p><a href="/download/c0c4d6418a3474b2fb4e9dae3f797bd4/Gattaca/gattaca_dvdrip_divx61_ac3_sailfish">gattaca_dvdrip_divx61_ac3_(sailfish)</a></p>
             #         <p class="data">1210 downloads, nota 10, enviado por <a href="/usuario/SuperEly">SuperEly</a> em 02/11/2006 - 16:13 </p>
             #     </div>
-            #     <img src="/img/idioma/icon_brazil.png" alt="Portugu&#195;&#170;s-BR" title="Portugu&#195;&#170;s-BR">
+            #     <img src="/img/idioma/icon_brazil.png" alt="Portugu&#234;s-BR" title="Portugu&#234;s-BR">
             # </div>
             for e in tree.xpath(".//article/div"):
                 data = e.xpath(".//text()")
