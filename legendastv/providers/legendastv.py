@@ -135,6 +135,8 @@ class LegendasTV(HttpBot, Provider):
     name = "Legendas.TV"
     url = "http://legendas.tv"
 
+    _re_sub_language = re.compile(r"idioma/\w+_(\w+)\.")
+
     def __init__(self, login=None, password=None):
         super(LegendasTV, self).__init__(self.url)
 
@@ -149,18 +151,6 @@ class LegendasTV(HttpBot, Provider):
 
         self.get(url, {'data[User][username]': self.login,
                        'data[User][password]': self.password})
-
-    def _searchdata(self, text, type=None, lang=None):
-        """ Helper for the website's search form. Return a dict suitable for
-            the get() method
-        """
-        return {'txtLegenda': text,
-                'selTipo'   : type or 1, # Release search
-                'int_idioma': lang or 1, # Brazilian Portuguese
-                'btn_buscar.x': 0,
-                'btn_buscar.y': 0,}
-
-    _re_movie_text = re.compile(r"^(?P<title>.+)\ \((?P<year>\d+)\)$")
 
     def getMovies(self, text):
         """ Given a search text, return a list of dicts with basic movie info:
@@ -192,55 +182,6 @@ class LegendasTV(HttpBot, Provider):
                                                     dt.print_dictlist(movies)))
         return movies
 
-    def getMovieDetails(self, movie):
-        return self.getMovieDetailsById(movie['id'])
-
-    def getMovieDetailsById(self, id):
-        """ Returns a dict with additional info about a movie than the ones
-            provided by getMovies(), such as:
-            title_br - movie title in Brazil
-            genre - dict with id, genre, genre_br as defined in constants
-            synopsis - a (usually lame) synopsis of the movie
-        """
-        url = "index.php?opcao=buscarlegenda&filme=" + str(id)
-        tree = html.parse(self.get(url, self._searchdata("..")))
-
-        #<table width="95%" border="0" cellpadding="0" cellspacing="0" bgcolor="#f2f2f2" class="filmresult">
-        #<tr>
-        #    <td width="115" rowspan="4" valign="top"><div align="center"><img src="thumbs/1802-87eb3781511594f8ea4123201df05f36.jpg" /></div></td>
-        #    <td width="335"><div align="left"><strong>T&iacute;tulo:</strong>
-        #      CSI: Miami - 1st Season
-        #      <strong>(
-        #      2002              )              </strong></div></td>
-        #</tr>
-        #<tr>
-        #    <td><div align="left"><strong>Nacional:</strong>
-        #      CSI: Miami - 1&ordf; Temporada            </div></td>
-        #</tr>
-        #<tr>
-        #    <td><strong>G&ecirc;nero:</strong>              Seriado</td>
-        #</tr>
-        #<tr>
-        #    <td><div align="left"><strong>Sinopse:</strong>
-        #      Mostra o trabalho da equipe de investigadores do sul da Fl&oacute;rida que soluciona crimes atrav&eacute;s da mistura de m&eacute;todos cient&iacute;ficos, t&eacute;cnicas tradicionais, tecnologia de ponta e instinto apurado para descobrir pistas.(mais)
-        #    </div></td>
-        #</tr>
-        #</table>
-        e = tree.xpath(".//table[@class='filmresult']")[-1]
-        data = e.xpath(".//text()")
-        movie = dict(
-            id          = id,
-            title       = data[ 2].strip(),
-            year        = data[ 3],
-            title_br    = data[ 6].strip(),
-            genre       = data[ 9].strip(),
-            synopsis    = data[12].strip(),
-            thumb       = e.xpath(".//img")[0].attrib['src']
-        )
-        movie['year'] = int(dt.clean_string(movie['year']))
-
-        print_debug("Details for title %s: %s" % (id, movie))
-        return movie
 
     """ Convenience wrappers for the main getSubtitles method """
 
@@ -255,21 +196,6 @@ class LegendasTV(HttpBot, Provider):
     def getSubtitlesByText(self, text, type=None, lang=None, allpages=True):
         return self.getSubtitles(text=text, type=type,
                                  lang=lang, allpages=allpages)
-
-    _re_sub_language = re.compile(r"idioma/\w+_(\w+)\.")
-    _re_sub_text = re.compile(r"""gpop\(.*
-        #'(?P<title>.*)',
-        #'(?P<title_br>.*)',
-        '(?P<release>.*)',
-        '(?P<cds>.*)',
-        '(?P<fps>.*)',
-        '(?P<size>\d+)MB',
-        '(?P<downloads>.*)',.*
-        src=\\'(?P<flag>[^']+)\\'.*,
-        '(?P<date>.*)'\)\).*
-        abredown\('(?P<hash>\w+)'\).*
-        abreinfousuario\((?P<user_id>\d+)\)""",
-        re.VERBOSE + re.DOTALL)
 
     def getSubtitles(self, text="", type=None, lang=None, movie_id=None,
                        allpages=True):
@@ -355,60 +281,6 @@ class LegendasTV(HttpBot, Provider):
                    ( movie_id or "'%s'" % text, dt.print_dictlist(subtitles)))
         return subtitles
 
-    def getSubtitleDetails(self, hash):
-        """ Returns a dict with additional info about a subtitle than the ones
-            provided by getSubtitles(), such as:
-            imdb_url, description (html), updates (list), votes
-            As with getSubtitles(), some info are related to the movie, not to
-            that particular subtitle
-        """
-        sub = {}
-        tree = html.parse(self.get('info.php?d=' + hash))
-
-        sub['imdb_url'] = tree.xpath("//a[@class='titulofilme']")
-        if len(sub['imdb_url']):
-            sub['imdb_url'] = sub['imdb_url'][0].attrib['href']
-
-        sub['synopsis'] = " ".join(
-            [t.strip() for t in tree.xpath("//span[@class='sinopse']//text()")])
-
-        sub['description'] = tree.xpath("//div[@id='descricao']")
-        if sub['description']:
-            sub['description'] = sub['description'][0].text + \
-                                 "".join([html.tostring(l)
-                                          for l in sub['description'][0]]) + \
-                                 sub['description'][0].tail.strip()
-
-        def info_from_list(datalist, text):
-            return "".join([d for d in datalist
-                            if d.strip().startswith(text)]
-                           ).split(text)[-1].strip()
-
-        data = [t.strip() for t in tree.xpath("//table//text()") if t.strip()]
-        sub.update(re.search(self._re_movie_text, data[0]).groupdict())
-        sub.update(dict(
-            title       = data[data.index("Título Original:") + 1],
-            title_br    = data[data.index("Título Nacional:") + 1],
-            release     = data[data.index("Rls:") + 1],
-            language    = data[data.index("Idioma:") + 1],
-            fps         = data[data.index("FPS:") + 1],
-            cds         = data[data.index("CDs:") + 1],
-            size        = data[data.index("Tamanho:") + 1][:-2],
-            downloads   = data[data.index("Downloads:") + 1],
-            comments    = data[data.index("Comentários:") + 1],
-            rating      = info_from_list(data, "Nota:").split("/")[0].strip(),
-            votes       = info_from_list(data, "Votos:"),
-            user_name   = info_from_list(data, "Enviada por:"),
-            date        = info_from_list(data, "Em:"),
-            id          = info_from_list(data, "idl =")[:-1],
-        ))
-        sub['date'] = datetime.strptime(sub['date'], '%d/%m/%Y - %H:%M')
-
-        dt.fields_to_int(sub, 'id', 'year', 'downloads', 'comments', 'cds', 'fps',
-                           'size', 'votes')
-
-        print_debug("Details for subtitle '%s': %s" % (hash, sub))
-        return sub
 
     def downloadSubtitle(self, hash, dir, basename=""):
         """ Download a subtitle archive based on subtitle id.
