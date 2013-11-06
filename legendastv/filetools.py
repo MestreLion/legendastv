@@ -20,9 +20,10 @@
 
 import os
 import zipfile
+import rarfile
 import logging
 
-from . import rarfile, datatools as dt
+from . import datatools as dt
 
 log = logging.getLogger(__name__)
 if __name__ == '__main__':
