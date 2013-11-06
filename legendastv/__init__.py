@@ -24,7 +24,7 @@ from . import g
 
 __author__  = 'MestreLion <linux@rodrigosilva.com>'
 __version__ = g.globals['version']
-__all__     = []
+__all__     = ['main', 'providers']
 
 import logging
 

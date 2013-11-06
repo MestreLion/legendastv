@@ -111,7 +111,3 @@ def read_config():
             except ValueError as e:
                 log.warn("%s in '%s' option of %s", e, option,
                          globals['config_file'])
-
-
-class Provider(object):
-    pass

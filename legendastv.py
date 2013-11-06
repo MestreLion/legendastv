@@ -50,7 +50,8 @@ from __future__ import unicode_literals, absolute_import
 import os, sys
 import logging.handlers
 
-from legendastv import g, filetools, legendastv
+from legendastv import g, filetools, subtitles
+from legendastv.providers import legendastv
 
 
 def run_demo():
@@ -60,7 +61,7 @@ def run_demo():
     ltv = legendastv.LegendasTV(g.options['login'], g.options['password'])
     movies = ltv.getMovies(search)
     if movies:
-        ltv.getSubtitleDetails(ltv.getSubtitlesByText(search)[0]['hash'])
+        ltv.getSubtitlesByMovie(movies[0], allpages=False)
 
 
 def setup_logging():
@@ -92,7 +93,7 @@ def setup_logging():
 
 
 def main(args):
-    legendastv.notify("Logging in Legendas.TV")
+    subtitles.notify("Logging in Legendas.TV")
     ltv = legendastv.LegendasTV()
 
     for path in args:
@@ -103,11 +104,11 @@ def main(args):
                 for video in files:
                     videofile = os.path.join(root, video)
                     if filetools.is_video(videofile):
-                        legendastv.retrieve_subtitle_for_movie(videofile,
-                                                               legendastv=ltv)
+                        subtitles.retrieve_subtitle_for_movie(videofile,
+                                                              legendastv=ltv)
 
         elif os.path.isfile(filename):
-            legendastv.retrieve_subtitle_for_movie(filename, legendastv=ltv)
+            subtitles.retrieve_subtitle_for_movie(filename, legendastv=ltv)
 
         else:
             log.warn("Ignoring path %s", filename)

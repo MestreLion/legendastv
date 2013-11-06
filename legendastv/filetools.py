@@ -18,9 +18,12 @@
 #
 # Miscellaneous file-handling functions
 
-import os.path as osp
-
+import os
+import zipfile
 import logging
+
+from . import rarfile, datatools as dt
+
 log = logging.getLogger(__name__)
 if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG)
@@ -214,7 +217,74 @@ def extension(path):
         Can be empty. Does not consider POSIX hidden files to be extensions.
         Example: extension('A.JPG') -> 'jpg'
     '''
-    return osp.splitext(path)[1][1:].lower()
+    return os.path.splitext(path)[1][1:].lower()
+
+
+def extract_archive(archive, dir="", extlist=[], keep=False):
+    """ Extract files from a zip or rar archive whose filename extension
+        (including the ".") is in extlist, or all files if extlist is empty.
+        If keep is False, also delete the archive afterwards
+        - archive is the archive filename (with path)
+        - dir is the extraction folder, same folder as archive if empty
+        return: a list with the filenames (with path) of extracted files
+    """
+
+    # Clean up arguments
+    archive = os.path.expanduser(archive)
+    dir     = os.path.expanduser(dir)
+
+    # Convert string to a single-item list
+    if extlist and isinstance(extlist, basestring):
+        extlist = extlist.split()
+
+    if not os.path.isdir(dir):
+        dir = os.path.dirname(archive)
+
+    files = []
+
+    af = ArchiveFile(archive)
+
+    log.debug("%d files in archive '%s': %r",
+              len(af.namelist()), os.path.basename(archive), af.namelist())
+
+    for f in [f for f in af.namelist()
+                if af.getinfo(f).file_size > 0 and # to exclude dirs
+                    (not extlist or
+                     os.path.splitext(f)[1].lower() in extlist)]:
+
+        outfile = os.path.join(dir, os.path.basename(f))
+
+        with open(outfile, 'wb') as output:
+            output.write(af.read(f))
+            files.append(outfile)
+
+    af.close()
+
+    try:
+        if not keep: os.remove(archive)
+    except IOError as e:
+        log.error(e)
+
+    log.info("%d extracted files in '%s', filtered by %s\n\t%s",
+             len(files), archive, extlist, dt.print_dictlist(files))
+    return files
+
+
+def ArchiveFile(filename):
+    """ Pseudo class (hence the Case) to wrap both rar and zip handling,
+        since they both share almost identical API
+        usage:  myarchive = ArchiveFile(filename)
+        return: a RarFile or ZipFile instance (or None), depending on
+                <filename> content
+    """
+    if   rarfile.is_rarfile(filename):
+        return rarfile.RarFile(filename, mode='r')
+
+    elif zipfile.is_zipfile(filename):
+        return zipfile.ZipFile(filename, mode='r')
+
+    else:
+        return None
 
 
 if __name__ == '__main__':
@@ -224,8 +294,8 @@ if __name__ == '__main__':
         sys.exit(1)
 
     for path in sys.argv[1:]:
-        if osp.isfile(path):
+        if os.path.isfile(path):
             print
-            print osp.realpath(path)
+            print os.path.realpath(path)
             print mimetype(path)
             print "%svideo" % ("" if is_video(path) else "NOT ")

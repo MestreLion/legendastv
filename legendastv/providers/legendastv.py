@@ -23,21 +23,17 @@ from __future__ import unicode_literals, absolute_import, division
 
 import os
 import re
-import dbus
 import urllib
 import urllib2
 import urlparse
-import difflib
-import zipfile
 import operator
 import logging
 import json
 from lxml import html
 from datetime import datetime
 
-from . import g
-from . import rarfile
-from . import opensubtitles
+from .. import g, datatools as dt
+from . import Provider
 
 log = logging.getLogger(__name__)
 
@@ -66,212 +62,8 @@ log = logging.getLogger(__name__)
 # d       - Destaque (Highlighted subtitles only)
 # p       - Pack (Subtitle packs only, usually for series seasons)
 
-def notify(body, summary='', icon=''):
-
-    # Fallback for no notifications
-    if not g.options['notifications']:
-        log.notify("%s - %s", summary, body)
-        return
-
-    # Use the same interface object in all calls
-    if not g.globals['notifier']:
-        _bus_name = 'org.freedesktop.Notifications'
-        _bus_path = '/org/freedesktop/Notifications'
-        _bus_obj  = dbus.SessionBus().get_object(_bus_name, _bus_path)
-        g.globals['notifier'] = dbus.Interface(_bus_obj, _bus_name)
-
-    app_name    = g.globals['apptitle']
-    replaces_id = 0
-    summary     = summary or app_name
-    actions     = []
-    hints       = {'x-canonical-append': "" }  # merge if same summary
-    timeout     = -1 # server default
-
-    if icon and os.path.exists(icon):
-        g.globals['notify_icon'] = icon # save for later
-    app_icon    = g.globals['notify_icon']
-
-    g.globals['notifier'].Notify(app_name, replaces_id, app_icon, summary, body,
-                                actions, hints, timeout)
-    log.notify(body)
-
 def print_debug(text):
     log.debug('\n\t'.join(text.split('\n')))
-
-def fields_to_int(dict, *keys):
-    """ Helper function to cast several fields in a dict to int
-        usage: int_fields(mydict, 'keyA', 'keyB', 'keyD')
-    """
-    for key in keys:
-        if dict[key] is not None:
-            dict[key] = int(dict[key])
-
-def get_similarity(text1, text2, ignorecase=True):
-    """ Returns a float in [0,1] range representing the similarity of 2 strings
-    """
-    if ignorecase:
-        text1 = text1.lower()
-        text2 = text2.lower()
-    return difflib.SequenceMatcher(None, text1, text2).ratio()
-
-def choose_best_string(reference, candidates, ignorecase=True):
-    """ Given a reference string and a list of candidate strings, return a dict
-        with the candidate most similar to the reference, its index on the list
-        and the similarity ratio (a float in [0, 1] range)
-    """
-    if ignorecase:
-        reference_lower  = reference.lower()
-        candidates_lower = [c.lower() for c in candidates]
-        result = difflib.get_close_matches(reference_lower,
-                                           candidates_lower,1, 0)[0]
-
-        index = candidates_lower.index(result)
-        best  = candidates[index]
-        similarity = get_similarity(reference_lower, result, False)
-
-    else:
-        best = difflib.get_close_matches(reference, candidates, 1, 0)[0]
-        index = candidates.index(best)
-        similarity = get_similarity(reference, best, False)
-
-    return dict(best = best,
-                index = index,
-                similarity = similarity)
-
-def choose_best_by_key(reference, dictlist, key, ignorecase=True):
-    """ Given a reference string and a list of dictionaries, compares each
-        dict key value against the reference, and return a dict with keys:
-        'best' = the dict whose key value was the most similar to reference
-        'index' = the position of the chosen dict in dictlist
-        'similarity' = the similarity ratio between reference and dict[key]
-    """
-    if ignorecase:
-        best = choose_best_string(reference.lower(),
-                                  [d[key].lower() for d in dictlist],
-                                  ignorecase = False)
-    else:
-        best = choose_best_string(reference, [d[key] for d in dictlist], False)
-
-
-    result = dict(best = dictlist[best['index']],
-                  similarity = best['similarity'])
-    print_debug("Chosen best for '%s' in '%s': %s" % (reference, key, result))
-    return result
-
-def clean_string(text):
-    text = re.sub(r"^\[.+?]"   ,"",text)
-    text = re.sub(r"[][}{)(.,:_-]"," ",text)
-    text = re.sub(r" +"       ," ",text).strip()
-    return text
-
-def guess_movie_info(text):
-
-    text = text.strip()
-
-    # If 2+ years found, pick the last one and pray for a sane naming scheme
-    year = re.findall(r"(?<!\d)(?:19|20)\d{2}(?!\d)", text)
-    year = year[-1] if year else ""
-
-    release = clean_string(text)
-
-    if year:
-        title = release.split(year,1)[1 if release.startswith(year) else 0]
-    else:
-        title = release
-
-    # Remove some common "tags"
-    tags = ['1080p','720p','480p','hdtv','h264','x264','h65','dts','aac','ac3',
-            'bluray','bdrip','brrip','dvd','dvdrip','xvid','mp4','itunes',
-            'web dl','blu ray']
-    for s in tags:
-        title = re.sub(s, "", title, 0, re.IGNORECASE)
-    title = re.sub(" +", " ", title).strip()
-
-    result = dict(year=year, title=title, release=release)
-    print_debug("Guessed title info: '%s' -> %s" % (text, result))
-    return result
-
-def filter_dict(dict, keys=[], whitelist=True):
-    """ Filter a dict, returning a copy with only the selected keys
-        (or all *but* the selected keys, if not whitelist)
-    """
-    if keys:
-        if whitelist:
-            return dict([(k, v) for (k, v) in dict.items() if k in keys])
-        else:
-            return dict([(k, v) for (k, v) in dict.items() if k not in keys])
-    else:
-        return dict
-
-def print_dictlist(dictlist, keys=None, whitelist=True):
-    """ Prints a list, an item per line """
-    return "\n".join([repr(filter_dict(d, keys, whitelist))
-                      for d in dictlist])
-
-def extract_archive(archive, dir="", extlist=[], keep=False):
-    """ Extract files from a zip or rar archive whose filename extension
-        (including the ".") is in extlist, or all files if extlist is empty.
-        If keep is False, also delete the archive afterwards
-        - archive is the archive filename (with path)
-        - dir is the extraction folder, same folder as archive if empty
-        return: a list with the filenames (with path) of extracted files
-    """
-
-    # Clean up arguments
-    archive = os.path.expanduser(archive)
-    dir     = os.path.expanduser(dir)
-
-    # Convert string to a single-item list
-    if extlist and isinstance(extlist, basestring):
-        extlist = extlist.split()
-
-    if not os.path.isdir(dir):
-        dir = os.path.dirname(archive)
-
-    files = []
-
-    af = ArchiveFile(archive)
-
-    log.debug("%d files in archive '%s': %r",
-              len(af.namelist()), os.path.basename(archive), af.namelist())
-
-    for f in [f for f in af.namelist()
-                if af.getinfo(f).file_size > 0 and # to exclude dirs
-                    (not extlist or
-                     os.path.splitext(f)[1].lower() in extlist)]:
-
-        outfile = os.path.join(dir, os.path.basename(f))
-
-        with open(outfile, 'wb') as output:
-            output.write(af.read(f))
-            files.append(outfile)
-
-    af.close()
-
-    try:
-        if not keep: os.remove(archive)
-    except IOError as e:
-        log.error(e)
-
-    log.info("%d extracted files in '%s', filtered by %s\n\t%s",
-             len(files), archive, extlist, print_dictlist(files))
-    return files
-
-def ArchiveFile(filename):
-    """ Pseudo class (hence the Case) to wrap both rar and zip handling,
-        since they both share almost identical API
-        usage:  myarchive = ArchiveFile(filename)
-        return: a RarFile or ZipFile instance (or None), depending on
-                <filename> content
-    """
-    if   rarfile.is_rarfile(filename):
-        return rarfile.RarFile(filename, mode='r')
-
-    elif zipfile.is_zipfile(filename):
-        return zipfile.ZipFile(filename, mode='r')
-
-    else:
-        return None
 
 class HttpBot(object):
     """ Base class for other handling basic http tasks like requesting a page,
@@ -338,7 +130,7 @@ class HttpBot(object):
         return html.parse(self.get(url, postdata),
                           parser=html.HTMLParser(encoding='utf-8'))
 
-class LegendasTV(HttpBot, g.Provider):
+class LegendasTV(HttpBot, Provider):
 
     name = "Legendas.TV"
     url = "http://legendas.tv"
@@ -397,7 +189,7 @@ class LegendasTV(HttpBot, g.Provider):
             movies.append(movie)
 
         print_debug("Titles found for '%s':\n%s" % (text,
-                                                    print_dictlist(movies)))
+                                                    dt.print_dictlist(movies)))
         return movies
 
     def getMovieDetails(self, movie):
@@ -445,7 +237,7 @@ class LegendasTV(HttpBot, g.Provider):
             synopsis    = data[12].strip(),
             thumb       = e.xpath(".//img")[0].attrib['src']
         )
-        movie['year'] = int(clean_string(movie['year']))
+        movie['year'] = int(dt.clean_string(movie['year']))
 
         print_debug("Details for title %s: %s" % (id, movie))
         return movie
@@ -533,7 +325,7 @@ class LegendasTV(HttpBot, g.Provider):
                     highlight   = e.attrib['class'] == 'destaque',
                     flag        = e.xpath("./img")[0].attrib['src']
                 )
-                fields_to_int(sub, 'downloads', 'rating')
+                dt.fields_to_int(sub, 'downloads', 'rating')
                 sub['language'] = re.search(self._re_sub_language,
                                             sub['flag']).group(1)
                 sub['date'] = datetime.strptime(sub['date'], '%d/%m/%Y - %H:%M')
@@ -554,7 +346,7 @@ class LegendasTV(HttpBot, g.Provider):
                     lastpage = True
 
         print_debug("Subtitles found for %s:\n%s" %
-                   ( movie_id or "'%s'" % text, print_dictlist(subtitles)))
+                   ( movie_id or "'%s'" % text, dt.print_dictlist(subtitles)))
         return subtitles
 
     def getSubtitleDetails(self, hash):
@@ -606,7 +398,7 @@ class LegendasTV(HttpBot, g.Provider):
         ))
         sub['date'] = datetime.strptime(sub['date'], '%d/%m/%Y - %H:%M')
 
-        fields_to_int(sub, 'id', 'year', 'downloads', 'comments', 'cds', 'fps',
+        dt.fields_to_int(sub, 'id', 'year', 'downloads', 'comments', 'cds', 'fps',
                            'size', 'votes')
 
         print_debug("Details for subtitle '%s': %s" % (hash, sub))
@@ -637,11 +429,11 @@ class LegendasTV(HttpBot, g.Provider):
         for sub in subtitles:
             score = 0
 
-            score += 10 * get_similarity(clean_string(movie['title']),
-                                         clean_string(sub['title']))
+            score += 10 * dt.get_similarity(dt.clean_string(movie['title']),
+                                            dt.clean_string(sub['title']))
             score +=  3 * 1 if sub['highlight'] else 0
-            score +=  5 * get_similarity(movie['release'],
-                                         clean_string(sub['release']))
+            score +=  5 * dt.get_similarity(movie['release'],
+                                            dt.clean_string(sub['release']))
             score +=  1 * (sub['rating']/10 if sub['rating'] is not None else 0.8)
             score +=  1 * (1 - ( (days(sub['date'])-newest)/(oldest-newest)
                                  if oldest != newest
@@ -652,219 +444,5 @@ class LegendasTV(HttpBot, g.Provider):
         result = sorted(subtitles, key=operator.itemgetter('score'),
                         reverse=True)
         print_debug("Ranked subtitles for %s:\n%s" % (movie,
-                                                      print_dictlist(result)))
+                                                      dt.print_dictlist(result)))
         return result
-
-def retrieve_subtitle_for_movie(usermovie, login=None, password=None,
-                                legendastv=None):
-    """ Main function to find, download, extract and match a subtitle for a
-        selected file
-    """
-
-    # Log in
-    if not legendastv:
-        notify("Logging in Legendas.TV", icon=g.globals['appicon'])
-        legendastv = LegendasTV(login, password)
-
-    usermovie = os.path.abspath(usermovie)
-    print_debug("Target: %s" % usermovie)
-    savedir = os.path.dirname(usermovie)
-    dirname = os.path.basename(savedir)
-    filename = os.path.splitext(os.path.basename(usermovie))[0]
-
-    # Which string we use first for searches? Dirname or Filename?
-    # If they are similar, take the dir. If not, take the longest
-    if (get_similarity(dirname, filename) > g.options['similarity'] or
-        len(dirname) > len(filename)):
-        search = dirname
-    else:
-        search = filename
-
-    # Now let's play with that string and try to get some useful info
-    movie = guess_movie_info(search)
-    movie.update({'episode': '', 'season': '', 'type': '' })
-
-    # Try to tell movie from episode
-    _re_season_episode = re.compile(r"S(?P<season>\d\d?)E(?P<episode>\d\d?)",
-                                    re.IGNORECASE)
-    data_obj = re.search(_re_season_episode, filename) # always use filename
-    if data_obj:
-        data = data_obj.groupdict()
-        movie['type']    = 'episode'
-        movie['season']  = data['season']
-        movie['episode'] = data['episode']
-        movie['title']   = movie['title'][:data_obj.start()]
-
-    # Get more useful info from OpenSubtitles.org
-    osdb_movies = []
-    try:
-        osdb_movies = opensubtitles.videoinfo(usermovie)
-    except:
-        pass
-
-    print_debug("%d OpenSubtitles found:\n%s" %
-                (len(osdb_movies), print_dictlist(osdb_movies)))
-
-    # Filter results
-    osdb_movies = [m for m in osdb_movies
-                   if m['MovieKind'] != 'tv series' and
-                   (not movie['type'] or m['MovieKind']==movie['type'])]
-
-    if len(osdb_movies) > 0:
-        for m in osdb_movies:
-            m['search'] = "%s %s" % (m['MovieName'], m['MovieYear'])
-
-        osdb_movie = choose_best_by_key("%s %s" % (movie['title'],
-                                                   movie['year']),
-                                        osdb_movies,
-                                        'search')['best']
-
-        # For episodes, extract only the series name
-        if (osdb_movie['MovieKind'] == 'episode' and
-            osdb_movie['MovieName'].startswith('"')):
-            osdb_movie['MovieName'] = osdb_movie['MovieName'].split('"')[1]
-
-        movie['title']   = osdb_movie['MovieName']
-        movie['year']    = osdb_movie['MovieYear']
-        movie['type']    = movie['type']    or osdb_movie['MovieKind']
-        movie['season']  = movie['season']  or osdb_movie['SeriesSeason']
-        movie['episode'] = movie['episode'] or osdb_movie['SeriesEpisode']
-
-    def season_to_ord(season):
-        season = int(season)
-        if   season == 1: tag = "st"
-        elif season == 2: tag = "nd"
-        elif season == 3: tag = "rd"
-        else            : tag = "th"
-        return "%d%s" % (season, tag)
-
-    # Remove special chars that LegendasTV diskiles
-    movie['title'] = movie['title'].replace("'","")
-
-    if movie['type'] == "episode":
-        movie['title'] = "%s %s Season" % (movie['title'],
-                                           season_to_ord(movie['season']))
-
-    # Let's begin with a movie search
-    if movie['type'] == 'episode':
-        notify("Searching for '%s - Episode %d'" % (movie['title'],
-                                                    int(movie['episode'])),
-               icon=g.globals['appicon'])
-    else:
-        notify("Searching for '%s'" % movie['title'],
-               icon=g.globals['appicon'])
-
-    movies = legendastv.getMovies(movie['title'])
-
-    if len(movies) > 0:
-        # Nice! Lets pick the best movie...
-        notify("%s titles found" % len(movies))
-        for m in movies:
-            # Add a helper field: cleaned-up title
-            m['search'] = clean_string(m['title'])
-
-        # May the Force be with... the most similar!
-        result = choose_best_by_key(clean_string(movie['title']), movies, 'search')
-
-        # But... Is it really similar?
-        if result['similarity'] > g.options['similarity']:
-            movie.update(result['best'])
-
-            if movie['type'] == 'episode':
-                notify("Searching '%s' (%s) - Episode %d" %
-                       (result['best']['title'],
-                        result['best']['year'],
-                        int(movie['episode']),),
-                       icon=os.path.join(g.globals['cache_dir'],
-                                         os.path.basename(result['best']['thumb'])))
-            else:
-                notify("Searching title '%s'" % (result['best']['title']),
-                       icon=os.path.join(g.globals['cache_dir'],
-                                         os.path.basename(result['best']['thumb'])))
-
-            subs = legendastv.getSubtitlesByMovie(movie)
-
-        else:
-            # Almost giving up... forget movie matching
-            notify("None was similar enough. Trying release...")
-            subs = legendastv.getSubtitlesByText("%s %s" %
-                                                 (movie['title'],
-                                                  movie.get('year',"")))
-
-    else:
-        # Ok, let's try by release...
-        notify("No titles found. Trying release...")
-        subs = legendastv.getSubtitlesByText(movie['release'])
-
-    if len(subs) > 0:
-
-        # Good! Lets choose and download the best subtitle...
-        notify("%s subtitles found" % len(subs))
-
-        # For TV Series, exclude the ones that don't match our Episode
-        if movie['type'] == 'episode':
-            episodes = []
-            for sub in subs:
-                data_obj = re.search(_re_season_episode, sub['release'])
-                if data_obj:
-                    data = data_obj.groupdict()
-                    if int(data['episode']) == int(movie['episode']):
-                        episodes.append(sub)
-            subs = episodes
-        # FIXME: There may have no sobtitles for this episode, list empty
-        # FIXME: Glee 4th Season
-        subtitles = legendastv.rankSubtitles(movie, subs)
-
-        # UI suggestion: present the user with a single subtitle, and the
-        # following message:
-        # "This is the best subtitle match we've found, how about it?"
-        # And 3 options:
-        # - "Yes, perfect, you nailed it! Download it for me"
-        # - "This is nice, but not there yet. Let's see what else you've found"
-        #   (show a list of the other subtitles found)
-        # - "Eww, not even close! Let's try other search options"
-        #   (show the search options used, let user edit them, and retry)
-
-        notify("Downloading '%s' from '%s'" % (subtitles[0]['release'],
-                                               subtitles[0]['user_name']))
-        archive = legendastv.downloadSubtitle(subtitles[0]['hash'], savedir)
-        files = extract_archive(archive, savedir, [".srt"])
-        if len(files) > 1:
-            # Damn those multi-file archives!
-            notify("%s subtitles in archive" % len(files))
-
-            # Build a new list suitable for comparing
-            files = [dict(compare=clean_string(os.path.basename(
-                                               os.path.splitext(f)[0])),
-                          original=f)
-                     for f in files]
-
-            # Should we use file or dir as a reference?
-            dirname_compare  = clean_string(dirname)
-            filename_compare = clean_string(filename)
-            if get_similarity(dirname_compare , files[0]['compare']) > \
-               get_similarity(filename_compare, files[0]['compare']):
-                result = choose_best_by_key(dirname_compare,
-                                            files, 'compare')
-            else:
-                result = choose_best_by_key(filename_compare,
-                                            files, 'compare')
-
-            file = result['best']
-            files.remove(file) # remove the chosen from list
-            [os.remove(f['original']) for f in files] # delete the list
-            file = result['best']['original'] # convert back to string
-        else:
-            file = files[0] # so much easier...
-
-        newname = os.path.join(savedir, filename) + ".srt"
-        #notify("Matching '%s'" % os.path.basename(file)) # enough notifications
-        os.rename(file, newname)
-        notify("DONE! Oba Rê!!")
-        return True
-
-    else:
-        # Are you *sure* this movie exists? Try our interactive mode
-        # and search for yourself. I swear I tried...
-        notify("No subtitles found")
-        return False

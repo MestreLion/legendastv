@@ -29,7 +29,8 @@ import logging
 
 log = logging.getLogger(__name__)
 
-import g
+from .. import g
+from . import Provider
 
 languages_cache = os.path.join(g.globals['cache_dir'],
                                "languages_%s.json" % __name__.rpartition(".")[2])
@@ -101,7 +102,7 @@ class Osdb(object):
 
 
 
-class OpenSubtitles(Osdb, g.Provider):
+class OpenSubtitles(Osdb, Provider):
     name = "OpenSubtitles.org"
     url = "http://www.opensubtitles.org"
 
