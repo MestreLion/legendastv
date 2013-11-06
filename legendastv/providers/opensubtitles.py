@@ -40,7 +40,10 @@ class OpenSubtitlesError(Exception):
 class Osdb(object):
     def __init__(self, username="", password="", language=""):
         self.osdb = xmlrpclib.ServerProxy('http://api.opensubtitles.org/xml-rpc')
-        self.LogIn(username, password, language)
+        try:
+            self.LogIn(username, password, language)
+        except xmlrpclib.ProtocolError as e:
+            log.warn("Could not login to OSDB, some services may not work: %s", e)
 
 
     def LogIn(self, username="", password="", language=""):
