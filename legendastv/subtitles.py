@@ -253,9 +253,11 @@ def retrieve_subtitle_for_movie(usermovie, login=None, password=None,
                     if int(data['episode']) == int(movie['episode']):
                         episodes.append(sub)
             subs = episodes
-        # FIXME: There may have no sobtitles for this episode, list empty
-        # FIXME: Glee 4th Season
+
         subtitles = legendastv.rankSubtitles(movie, subs)
+        if not subtitles:
+            notify("No subtitles found for episode %d", int(movie['episode']))
+            return
 
         # UI suggestion: present the user with a single subtitle, and the
         # following message:
