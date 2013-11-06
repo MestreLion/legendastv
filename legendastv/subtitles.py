@@ -112,9 +112,8 @@ def retrieve_subtitle_for_movie(usermovie, login=None, password=None,
     filename = os.path.splitext(os.path.basename(usermovie))[0]
 
     # Which string we use first for searches? Dirname or Filename?
-    # If they are similar, take the dir. If not, take the longest
-    if (dt.get_similarity(dirname, filename) > g.options['similarity'] or
-        len(dirname) > len(filename)):
+    # Use Filename unless Dirname is much longer (presumably more relevant info)
+    if len(dirname) > 2 * len(filename):
         search = dirname
     else:
         search = filename
@@ -141,22 +140,26 @@ def retrieve_subtitle_for_movie(usermovie, login=None, password=None,
     except:
         pass
 
-    print_debug("%d OpenSubtitles found:\n%s" %
-                (len(osdb_movies), dt.print_dictlist(osdb_movies)))
-
     # Filter results
     osdb_movies = [m for m in osdb_movies
                    if m['MovieKind'] != 'tv series' and
                    (not movie['type'] or m['MovieKind']==movie['type'])]
 
-    if len(osdb_movies) > 0:
-        for m in osdb_movies:
-            m['search'] = "%s %s" % (m['MovieName'], m['MovieYear'])
+    print_debug("%d OpenSubtitles titles found:\n%s" %
+                (len(osdb_movies), dt.print_dictlist(osdb_movies)))
 
-        osdb_movie = dt.choose_best_by_key("%s %s" % (movie['title'],
-                                                      movie['year']),
-                                           osdb_movies,
-                                           'search')['best']
+    if len(osdb_movies) > 0:
+        if movie['year']:
+            search = "%s %s" % (movie['title'], movie['year'])
+        else:
+            search = movie['title']
+
+        for m in osdb_movies:
+            m['search'] = m['MovieName']
+            if movie['year']:
+                m['search'] += " %s" % m['MovieYear']
+
+        osdb_movie = dt.choose_best_by_key(search, osdb_movies, 'search')['best']
 
         # For episodes, extract only the series name
         if (osdb_movie['MovieKind'] == 'episode' and
@@ -177,20 +180,14 @@ def retrieve_subtitle_for_movie(usermovie, login=None, password=None,
         else            : tag = "th"
         return "%d%s" % (season, tag)
 
-    # Remove special chars that LegendasTV diskiles
-    movie['title'] = movie['title'].replace("'","")
-
-    if movie['type'] == "episode":
-        movie['title'] = "%s %s Season" % (movie['title'],
-                                           season_to_ord(movie['season']))
-
     # Let's begin with a movie search
     if movie['type'] == 'episode':
-        notify("Searching for '%s - Episode %d'" % (movie['title'],
-                                                    int(movie['episode'])),
+        movie['release'] = dt.clean_string(filename)
+        notify("Searching titles for '%s %s Season'" % (movie['title'],
+                                                        season_to_ord(movie['season'])),
                icon=g.globals['appicon'])
     else:
-        notify("Searching for '%s'" % movie['title'],
+        notify("Searching titles for '%s'" % movie['title'],
                icon=g.globals['appicon'])
 
     movies = legendastv.getMovies(movie['title'])
@@ -198,12 +195,21 @@ def retrieve_subtitle_for_movie(usermovie, login=None, password=None,
     if len(movies) > 0:
         # Nice! Lets pick the best movie...
         notify("%s titles found" % len(movies))
+
+        # For Series, add Season to title and compare with native title
+        if movie['type'] == 'episode':
+            season = " %d" % int(movie['season'])
+            search = 'title_br'
+        else:
+            season = ""
+            search = 'title'
+
         for m in movies:
             # Add a helper field: cleaned-up title
-            m['search'] = dt.clean_string(m['title'])
+            m['search'] = dt.clean_string(m[search])
 
         # May the Force be with... the most similar!
-        result = dt.choose_best_by_key(dt.clean_string(movie['title']),
+        result = dt.choose_best_by_key(dt.clean_string(movie['title']) + season,
                                        movies, 'search')
 
         # But... Is it really similar?
@@ -211,14 +217,12 @@ def retrieve_subtitle_for_movie(usermovie, login=None, password=None,
             movie.update(result['best'])
 
             if movie['type'] == 'episode':
-                notify("Searching '%s' (%s) - Episode %d" %
-                       (result['best']['title'],
-                        result['best']['year'],
-                        int(movie['episode']),),
+                notify("Searching subs for '%s' - Episode %d" %
+                       (result['best']['title_br'], int(movie['episode'])),
                        icon=os.path.join(g.globals['cache_dir'],
                                          os.path.basename(result['best']['thumb'])))
             else:
-                notify("Searching title '%s'" % (result['best']['title']),
+                notify("Searching subs for '%s'" % (result['best']['title']),
                        icon=os.path.join(g.globals['cache_dir'],
                                          os.path.basename(result['best']['thumb'])))
 
@@ -227,9 +231,7 @@ def retrieve_subtitle_for_movie(usermovie, login=None, password=None,
         else:
             # Almost giving up... forget movie matching
             notify("None was similar enough. Trying release...")
-            subs = legendastv.getSubtitlesByText("%s %s" %
-                                                 (movie['title'],
-                                                  movie.get('year',"")))
+            subs = legendastv.getSubtitlesByText(movie['release'])
 
     else:
         # Ok, let's try by release...
