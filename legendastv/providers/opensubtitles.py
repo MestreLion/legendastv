@@ -32,9 +32,6 @@ log = logging.getLogger(__name__)
 from .. import g
 from . import Provider
 
-languages_cache = os.path.join(g.globals['cache_dir'],
-                               "languages_%s.json" % __name__.rpartition(".")[2])
-
 
 class OpenSubtitlesError(Exception):
     pass
@@ -109,11 +106,13 @@ class OpenSubtitles(Osdb, Provider):
     def getLanguages(self, language="en"):
         # reading from cache
         cache = {}
+        cachefile = os.path.join(g.globals['cache_dir'],
+                                 "languages_%s.json" % __name__.rpartition(".")[2])
         try:
             # cache must exist and be fresh (30 days)
-            if os.path.getmtime(languages_cache) > time.time() - 60*60*24*30:
+            if os.path.getmtime(cachefile) > time.time() - 60*60*24*30:
                 # be accessible and readable
-                with open(languages_cache) as f:
+                with open(cachefile) as f:
                     # be a valid json file
                     cache = json.load(f)
                     # and must contain the specified language
@@ -135,7 +134,7 @@ class OpenSubtitles(Osdb, Provider):
 
         # save the cache
         try:
-            with open(languages_cache, 'w') as f:
+            with open(cachefile, 'w') as f:
                 # update the cache with retrieved language data
                 cache.update({language: languages})
                 json.dump(cache, f, sort_keys=True, indent=2, separators=(',', ':'))
