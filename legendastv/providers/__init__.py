@@ -42,4 +42,3 @@ def _setup_providers():
 
 
 _setup_providers()
-print providers

@@ -286,6 +286,12 @@ class LegendasTV(HttpBot, Provider):
             Return a list of dictionaries with the subtitles found. Some info
             is related to the movie, not to that particular subtitle
         """
+        if lang is None:
+            lang = g.options['language']
+
+        if   lang == "all": lang = ""
+        elif lang == "pb" : lang = 1
+
         subtitles = []
 
         url = "/util/carrega_legendas_busca"
