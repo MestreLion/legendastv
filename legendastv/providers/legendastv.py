@@ -179,13 +179,12 @@ class LegendasTV(HttpBot, Provider):
         for e in tree.xpath(".//select[@name='data[id_idioma]']/option"):
             id, name = int("0%s" % e.attrib['value']), e.text
             if id:
-                for lang, value in self.languages.iteritems():
-                    if value['id'] == id:
-                        if not value['name'] == name:
-                            log.debug("Updating language '%s' (%d): '%s' -> '%s'",
-                                      lang, id, value['name'], name)
-                            self.languages[lang].update({'name': name})
-                        break
+                for lang, value in dt.iter_find_in_dd(self.languages, 'id', id):
+                    if not value['name'] == name:
+                        log.debug("Updating language '%s' (%d): '%s' -> '%s'",
+                                  lang, id, value['name'], name)
+                        self.languages[lang].update({'name': name})
+                    break
                 else:
                     log.warn("Language not found: %d - '%s'", id, name)
 

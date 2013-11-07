@@ -117,3 +117,14 @@ def choose_best_by_key(reference, dictlist, key, ignorecase=True):
                   similarity = best['similarity'])
     print_debug("Chosen best for '%s' in '%s': %s" % (reference, key, result))
     return result
+
+
+def iter_find_in_dd(D, k, v):
+    """ Given a dictionary of dictionaries D, find the inner dictionary(ies) d
+        whose key k has value v, and yields a 2-tuple of outerkey K, innerdict d.
+        f(D, k, v) => K, D[K] such as D[K][k] == v
+        Note that all of D's inner dicts must contain the key k
+    """
+    for K, d in D.iteritems():
+        if d[k] == v:
+            yield K, d
