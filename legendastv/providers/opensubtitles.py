@@ -182,9 +182,7 @@ def videoinfo(filename, osdb=None):
 
 
 if __name__ == "__main__":
-
     import sys
-
     logging.basicConfig(level=logging.DEBUG)
 
     try:

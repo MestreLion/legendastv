@@ -25,8 +25,10 @@ import logging
 
 log = logging.getLogger(__name__)
 
+
 def print_debug(text):
     log.debug('\n\t'.join(text.split('\n')))
+
 
 def fields_to_int(dict, *keys):
     """ Helper function to cast several fields in a dict to int
@@ -36,19 +38,22 @@ def fields_to_int(dict, *keys):
         if dict[key] is not None:
             dict[key] = int(dict[key])
 
+
 def get_similarity(text1, text2, ignorecase=True):
-    """ Returns a float in [0,1] range representing the similarity of 2 strings
+    """ Return a float in [0,1] range representing the similarity of 2 strings
     """
     if ignorecase:
         text1 = text1.lower()
         text2 = text2.lower()
     return difflib.SequenceMatcher(None, text1, text2).ratio()
 
+
 def clean_string(text):
     text = re.sub(r"^\[.+?]"   ,"",text)
     text = re.sub(r"[][}{)(.,:_-]"," ",text)
     text = re.sub(r" +"       ," ",text).strip()
     return text
+
 
 def filter_dict(dict, keys=[], whitelist=True):
     """ Filter a dict, returning a copy with only the selected keys
@@ -62,10 +67,12 @@ def filter_dict(dict, keys=[], whitelist=True):
     else:
         return dict
 
+
 def print_dictlist(dictlist, keys=None, whitelist=True):
     """ Prints a list, an item per line """
     return "\n".join([repr(filter_dict(d, keys, whitelist))
                       for d in dictlist])
+
 
 def choose_best_string(reference, candidates, ignorecase=True):
     """ Given a reference string and a list of candidate strings, return a dict
@@ -91,8 +98,9 @@ def choose_best_string(reference, candidates, ignorecase=True):
                 index = index,
                 similarity = similarity)
 
+
 def choose_best_by_key(reference, dictlist, key, ignorecase=True):
-    """ Given a reference string and a list of dictionaries, compares each
+    """ Given a reference string and a list of dictionaries, compare each
         dict key value against the reference, and return a dict with keys:
         'best' = the dict whose key value was the most similar to reference
         'index' = the position of the chosen dict in dictlist
@@ -104,7 +112,6 @@ def choose_best_by_key(reference, dictlist, key, ignorecase=True):
                                   ignorecase = False)
     else:
         best = choose_best_string(reference, [d[key] for d in dictlist], False)
-
 
     result = dict(best = dictlist[best['index']],
                   similarity = best['similarity'])
