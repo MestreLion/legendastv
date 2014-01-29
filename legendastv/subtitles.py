@@ -213,7 +213,7 @@ def retrieve_subtitle_for_movie(usermovie, login=None, password=None,
                                        movies, 'search')
 
         # But... Is it really similar?
-        if result['similarity'] > g.options['similarity']:
+        if len(movies) == 1 or result['similarity'] > g.options['similarity']:
             movie.update(result['best'])
 
             if movie['type'] == 'episode':

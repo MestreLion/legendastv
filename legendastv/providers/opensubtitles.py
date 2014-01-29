@@ -106,6 +106,10 @@ class OpenSubtitles(Osdb, Provider):
     name = "OpenSubtitles.org"
     url = "http://www.opensubtitles.org"
 
+    def __init__(self, *args, **kwargs):
+        super(OpenSubtitles, self).__init__(*args, **kwargs)
+
+
     def getLanguages(self, language="en"):
         # reading from cache
         cache = {}
