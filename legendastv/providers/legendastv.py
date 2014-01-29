@@ -260,10 +260,15 @@ class LegendasTV(HttpBot, Provider):
             is related to the movie, not to that particular subtitle
         """
         if lang is None:
-            lang = g.options['language']
+            lang = g.options['language'] or ""
 
-        if   lang == "all": lang = ""
-        elif lang == "pb" : lang = 1
+        # Convert 2-char language ISO code to lang_id used in search
+        lang_id = self.languages.get(lang, {}).get('id', 0)
+
+        # "re-map" languages to a format useful for fast subtitle processing
+        languages = {}
+        for lang_iso, language in self.languages.iteritems():
+            languages[language['code']] = lang_iso
 
         subtitles = []
 
@@ -271,7 +276,7 @@ class LegendasTV(HttpBot, Provider):
         if movie_id:  url += "/id_filme:"  + str(movie_id)
         else:         url += "/termo:"     + self.quote(text.strip())
         if type:      url += "/sel_tipo:"  + type
-        if lang:      url += "/id_idioma:" + str(lang)
+        if lang:      url += "/id_idioma:" + str(lang_id)
 
         page = 0
         lastpage = False
@@ -305,8 +310,8 @@ class LegendasTV(HttpBot, Provider):
                     flag        = e.xpath("./img")[0].attrib['src']
                 )
                 dt.fields_to_int(sub, 'downloads', 'rating')
-                sub['language'] = re.search(self._re_sub_language,
-                                            sub['flag']).group(1)
+                sub['language'] = languages.get(re.search(self._re_sub_language,
+                                                          sub['flag']).group(1))
                 sub['date'] = datetime.strptime(sub['date'], '%d/%m/%Y - %H:%M')
                 if sub['release'].startswith("(p)") and sub['pack']:
                     sub['release'] = sub['release'][3:]
