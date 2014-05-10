@@ -294,6 +294,7 @@ class LegendasTV(HttpBot, Provider):
             #     <img src="/img/idioma/icon_brazil.png" alt="Portugu&#234;s-BR" title="Portugu&#234;s-BR">
             # </div>
             for e in tree.xpath(".//article/div"):
+                if e.attrib['class'].startswith('banner'): continue
                 data = e.xpath(".//text()")
                 dataurl = e.xpath(".//a")[0].attrib['href'].split('/')
                 dataline = data[2].split(' ')
