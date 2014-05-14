@@ -220,7 +220,7 @@ class LegendasTV(HttpBot, Provider):
                 thumb    = item['dsc_imagen'],
             )
             if movie['thumb']:
-                movie['thumb'] = "/img/poster/" + movie['thumb']
+                movie['thumb'] = "http://i.legendas.tv/poster/" + movie['thumb']
                 if g.options['cache']:
                     self.cache(movie['thumb'])
             movies.append(movie)

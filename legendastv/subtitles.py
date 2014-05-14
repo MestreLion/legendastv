@@ -53,7 +53,7 @@ def notify(body, summary='', icon=''):
     hints       = {'x-canonical-append': "" }  # merge if same summary
     timeout     = -1 # server default
 
-    if icon and os.path.exists(icon):
+    if os.path.isfile(icon):
         g.globals['notify_icon'] = icon # save for later
     app_icon    = g.globals['notify_icon']
 
@@ -220,11 +220,11 @@ def retrieve_subtitle_for_movie(usermovie, login=None, password=None,
                 notify("Searching subs for '%s' - Episode %d" %
                        (result['best']['title_br'], int(movie['episode'])),
                        icon=os.path.join(g.globals['cache_dir'],
-                                         os.path.basename(result['best']['thumb'])))
+                                         os.path.basename(result['best']['thumb'] or "")))
             else:
                 notify("Searching subs for '%s'" % (result['best']['title']),
                        icon=os.path.join(g.globals['cache_dir'],
-                                         os.path.basename(result['best']['thumb'])))
+                                         os.path.basename(result['best']['thumb'] or "")))
 
             subs = legendastv.getSubtitlesByMovie(movie)
 
