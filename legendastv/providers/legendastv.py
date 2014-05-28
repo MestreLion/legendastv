@@ -249,8 +249,9 @@ class LegendasTV(HttpBot, Provider):
         """ Main method for searching, parsing and retrieving subtitles info.
             Arguments:
             text - the text to search for
-            type - The type of search that text refers to. An int as defined
-                   in constans representing either Release, Title or User
+            type - the type of subtitle. Either blank or a char as:
+                   'p' - for subtitle pack (usually for a Series' whole Season)
+                   'd' - destaque (highlighted subtitle, considered superior)
             lang - The subtitle language to search for. An int as defined
                    in constants
             movie_id - search all subtitles from the specified movie. If used,
@@ -273,10 +274,16 @@ class LegendasTV(HttpBot, Provider):
         subtitles = []
 
         url = "/util/carrega_legendas_busca"
-        if movie_id:  url += "/id_filme:"  + str(movie_id)
-        else:         url += "/termo:"     + self.quote(text.strip())
-        if type:      url += "/sel_tipo:"  + type
-        if lang:      url += "/id_idioma:" + str(lang_id)
+        if movie_id:  url += "_filme/"     + str(movie_id)
+        else:         url += "/"           + self.quote(text.strip())
+
+        if lang:
+            url += "/" + str(lang_id)
+        else:
+            url += "/-"
+
+        if type:
+            url += "/" + type
 
         page = 0
         lastpage = False
