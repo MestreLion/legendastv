@@ -205,7 +205,13 @@ class LegendasTV(HttpBot, Provider):
         """
         movies = []
 
-        tree = json.load(self.get("/util/busca_titulo/" + self.quote(text)))
+        url = "/util/busca_titulo/" + self.quote(text.split(':', 1)[0])
+        log.debug("loading %s", url)
+        try:
+            tree = json.load(self.get(url))
+        except urllib2.HTTPError as e:
+            log.error(e)
+            tree = []
 
         # [{u'Filme': {u'id_filme':    u'20389',
         #              u'dsc_nome':    u'Wu long tian shi zhao ji gui',
