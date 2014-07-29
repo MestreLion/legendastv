@@ -23,6 +23,7 @@ from __future__ import unicode_literals, absolute_import
 import os
 import ConfigParser
 import logging
+import xdg.BaseDirectory as xdg
 
 log = logging.getLogger(__name__)
 
@@ -42,13 +43,9 @@ globals.update({
                     os.path.join(os.path.dirname(os.path.realpath(__file__)),
                                  "..", globals['appname'] + ".png")),
 
-    'cache_dir' : os.path.join(os.environ.get('XDG_CACHE_HOME') or
-                               os.path.join(os.path.expanduser('~'), '.cache'),
-                               globals['appname']),
+    'cache_dir' : os.path.join(xdg.xdg_cache_home, globals['appname']),
 
-    'config_dir': os.path.join(os.environ.get('XDG_CONFIG_HOME') or
-                               os.path.join(os.path.expanduser('~'), '.config'),
-                               globals['appname']),
+    'config_dir': xdg.save_config_path(globals['appname']),
 })
 globals.update({
 
@@ -78,8 +75,7 @@ def read_config():
     cp = ConfigParser.SafeConfigParser()
 
     if not os.path.exists(globals['config_file']):
-        if not os.path.isdir(globals['config_dir']):
-            os.makedirs(globals['config_dir'])
+        safemakedirs(globals['config_dir'])
         cp.add_section(section)
         for option in options:
             cp.set(section, option, unicode(options[option]))
@@ -111,3 +107,10 @@ def read_config():
             except ValueError as e:
                 log.warn("%s in '%s' option of %s", e, option,
                          globals['config_file'])
+
+def safemakedirs(path):
+    try:
+        os.makedirs(path, 0700)
+    except OSError as e:
+        if e.errno != 17:  # File exists
+            raise
