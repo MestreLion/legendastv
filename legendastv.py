@@ -133,5 +133,7 @@ if __name__ == "__main__":
             run_demo()
         else:
             main(sys.argv[1:])
+    except KeyboardInterrupt:
+        pass
     except Exception as e:
         log.critical(e, exc_info=1)
