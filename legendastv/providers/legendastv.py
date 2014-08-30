@@ -205,7 +205,7 @@ class LegendasTV(HttpBot, Provider):
         """
         movies = []
 
-        url = "/util/busca_titulo/" + self.quote(text.split(':', 1)[0])
+        url = "/util/busca_titulo/" + self.quote(text.split(':', 1)[0].strip())
         log.debug("loading %s", url)
         try:
             tree = json.load(self.get(url))

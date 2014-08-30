@@ -131,7 +131,7 @@ def retrieve_subtitle_for_movie(usermovie, login=None, password=None,
         movie['type']    = 'episode'
         movie['season']  = data['season']
         movie['episode'] = data['episode']
-        movie['title']   = movie['title'][:data_obj.start()]
+        movie['title']   = movie['title'][:data_obj.start()].strip()
 
     # Get more useful info from OpenSubtitles.org
     osdb_movies = []
@@ -207,6 +207,11 @@ def retrieve_subtitle_for_movie(usermovie, login=None, password=None,
         for m in movies:
             # Add a helper field: cleaned-up title
             m['search'] = dt.clean_string(m[search])
+            # For episodes, clean further
+            if movie['type'] == 'episode':
+                for tag in ['Temporada', 'temporada', 'Season', 'season', u'\xaa']:
+                    m['search'] = m['search'].replace(tag, "")
+                m['search'] = m['search'].strip()
 
         # May the Force be with... the most similar!
         result = dt.choose_best_by_key(dt.clean_string(movie['title']) + season,
