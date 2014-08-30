@@ -128,6 +128,7 @@ if __name__ == "__main__":
         log.warn("Login or password are blank. Some features may be disabled.\n\t"
                  "To fill them in, edit your config file: %s",
                  g.globals['config_file'])
+
     try:
         if len(sys.argv) < 2:
             run_demo()
@@ -136,4 +137,5 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         pass
     except Exception as e:
+        subtitles.notify("ERROR! Check log for details")
         log.critical(e, exc_info=1)

@@ -209,7 +209,8 @@ class LegendasTV(HttpBot, Provider):
         log.debug("loading %s", url)
         try:
             tree = json.load(self.get(url))
-        except urllib2.HTTPError as e:
+        except (urllib2.HTTPError, urllib2.httplib.BadStatusLine) as e:
+            log.notify("Server error retrieving URL!")
             log.error(e)
             tree = []
 
@@ -296,7 +297,12 @@ class LegendasTV(HttpBot, Provider):
         while not lastpage:
             page += 1
             log.debug("loading %s", url)
-            tree = self.parse(url)
+            try:
+                tree = self.parse(url)
+            except (urllib2.HTTPError, urllib2.httplib.BadStatusLine) as e:
+                log.notify("Server error retrieving URL!")
+                log.error(e)
+                break
 
             # <div class="">
             #     <span class="number number_2">35</span>
