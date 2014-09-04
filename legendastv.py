@@ -27,12 +27,9 @@
 # subtitle
 
 # TODO: (the loooong Roadmap list):
-# - more robust (ok, *any*) error handling.
-# - log debug messages to file instead of output to console
 # - convert magic numbers to enums / named constants
 # - create decent classes for entities (movies, subtitles, comments)
 # - cache movies and subtitles info to prickle/database
-# - re-estructure the methods into html-parsing (private) and task-driven ones
 #   a method for parsing each website page to feed the class/database, used by
 #   the user-oriented "getXxxByXxx()" methods to retrieve and present the data
 # - Console interactive mode to simulate current website navigation workflow:

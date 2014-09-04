@@ -248,10 +248,13 @@ def retrieve_subtitle_for_movie(usermovie, login=None, password=None,
         # Good! Lets choose and download the best subtitle...
         notify("%s subtitles found" % len(subs))
 
-        # For TV Series, exclude the ones that don't match our Episode
+        # For TV Series, consider only packs and matching episodes
         if movie['type'] == 'episode':
             episodes = []
             for sub in subs:
+                if sub['pack']:
+                    episodes.append(sub)
+                    continue
                 data_obj = re.search(_re_season_episode, sub['release'])
                 if data_obj:
                     data = data_obj.groupdict()
