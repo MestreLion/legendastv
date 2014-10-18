@@ -69,14 +69,19 @@ options = {
     'language'      : "pb",
 }
 
+mapping = {
+}
+
 def read_config():
 
     section = "Preferences"
+    mapping_section = "Mapping"
     cp = ConfigParser.SafeConfigParser()
 
     if not os.path.exists(globals['config_file']):
         safemakedirs(globals['config_dir'])
         cp.add_section(section)
+        cp.add_section(mapping_section)
         for option in options:
             cp.set(section, option, unicode(options[option]))
 
@@ -103,6 +108,15 @@ def read_config():
 
             except ConfigParser.NoOptionError as e:
                 log.warn("%s in %s", e, globals['config_file'])
+
+            except ValueError as e:
+                log.warn("%s in '%s' option of %s", e, option,
+                         globals['config_file'])
+
+    if cp.has_section(mapping_section):
+        for option in cp.items(mapping_section):
+            try:
+                mapping[option[0].decode('utf-8')] = option[1].decode('utf-8')
 
             except ValueError as e:
                 log.warn("%s in '%s' option of %s", e, option,
