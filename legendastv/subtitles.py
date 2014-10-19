@@ -126,6 +126,9 @@ def retrieve_subtitle_for_movie(usermovie, login=None, password=None,
     _re_season_episode = re.compile(r"S(?P<season>\d\d?)E(?P<episode>\d\d?)",
                                     re.IGNORECASE)
     data_obj = re.search(_re_season_episode, filename) # always use filename
+    if not data_obj:
+        _re_season_episode = re.compile(r"(?P<season>\d\d?)x(?P<episode>\d\d?)", re.IGNORECASE)
+        data_obj = re.search(_re_season_episode, filename) # always use filename
     if data_obj:
         data = data_obj.groupdict()
         movie['type']    = 'episode'
@@ -214,8 +217,8 @@ def retrieve_subtitle_for_movie(usermovie, login=None, password=None,
                 m['search'] = m['search'].strip()
 
         # May the Force be with... the most similar!
-        result = dt.choose_best_by_key(dt.clean_string(movie['title']) + season,
-                                       movies, 'search')
+        title_to_search = dt.clean_string(g.mapping.get(movie['title'].lower(), movie['title']))
+        result = dt.choose_best_by_key(title_to_search + season, movies, 'search')
 
         # But... Is it really similar?
         if len(movies) == 1 or result['similarity'] > g.options['similarity']:
