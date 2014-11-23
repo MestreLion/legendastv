@@ -388,9 +388,10 @@ class LegendasTV(HttpBot, Provider):
 
             score += 10 * dt.get_similarity(dt.clean_string(movie['title']),
                                             dt.clean_string(sub['title']))
-            score +=  3 * 1 if sub['highlight'] else 0
             score +=  5 * dt.get_similarity(movie['release'],
                                             dt.clean_string(sub['release']))
+            score +=  2 * 1 if sub['highlight'] else 0
+            score +=  1 * 1 if sub['pack'] else 0
             score +=  1 * (sub['rating']/10 if sub['rating'] is not None else 0.8)
             score +=  1 * (1 - ( (days(sub['date'])-newest)/(oldest-newest)
                                  if oldest != newest
