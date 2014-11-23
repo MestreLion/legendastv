@@ -35,6 +35,7 @@ from datetime import datetime
 
 from .. import g, datatools as dt
 from . import Provider
+from ..utils import notify
 
 log = logging.getLogger(__name__)
 
@@ -210,7 +211,7 @@ class LegendasTV(HttpBot, Provider):
         try:
             tree = json.load(self.get(url))
         except (urllib2.HTTPError, urllib2.httplib.BadStatusLine) as e:
-            log.notify("Server error retrieving URL!")
+            notify("Server error retrieving URL!")
             log.error(e)
             tree = []
 
@@ -300,7 +301,7 @@ class LegendasTV(HttpBot, Provider):
             try:
                 tree = self.parse(url)
             except (urllib2.HTTPError, urllib2.httplib.BadStatusLine) as e:
-                log.notify("Server error retrieving URL!")
+                notify("Server error retrieving URL!")
                 log.error(e)
                 break
 

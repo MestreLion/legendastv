@@ -23,43 +23,13 @@ from __future__ import unicode_literals, absolute_import, division
 
 import os
 import re
-import dbus
 import logging
 
 from . import g, datatools as dt, filetools as ft
 from .providers import opensubtitles
+from .utils import notify
 
 log = logging.getLogger(__name__)
-
-
-def notify(body, summary='', icon=''):
-
-    # Fallback for no notifications
-    if not g.options['notifications']:
-        log.notify("%s - %s", summary, body)
-        return
-
-    # Use the same interface object in all calls
-    if not g.globals['notifier']:
-        _bus_name = 'org.freedesktop.Notifications'
-        _bus_path = '/org/freedesktop/Notifications'
-        _bus_obj  = dbus.SessionBus().get_object(_bus_name, _bus_path)
-        g.globals['notifier'] = dbus.Interface(_bus_obj, _bus_name)
-
-    app_name    = g.globals['apptitle']
-    replaces_id = 0
-    summary     = summary or app_name
-    actions     = []
-    hints       = {'x-canonical-append': "" }  # merge if same summary
-    timeout     = -1 # server default
-
-    if os.path.isfile(icon):
-        g.globals['notify_icon'] = icon # save for later
-    app_icon    = g.globals['notify_icon']
-
-    g.globals['notifier'].Notify(app_name, replaces_id, app_icon, summary, body,
-                                actions, hints, timeout)
-    log.notify(body)
 
 
 def print_debug(text):
@@ -315,7 +285,7 @@ def retrieve_subtitle_for_movie(usermovie, login=None, password=None,
         newname = os.path.join(savedir, filename) + ".srt"
         #notify("Matching '%s'" % os.path.basename(file)) # enough notifications
         os.rename(file, newname)
-        notify("DONE! Oba Rê!!")
+        notify("DONE!")
         return True
 
     else:

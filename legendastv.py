@@ -47,7 +47,7 @@ from __future__ import unicode_literals, absolute_import
 import os, sys
 import logging.handlers
 
-from legendastv import g, filetools, subtitles
+from legendastv import g, filetools, subtitles, utils
 from legendastv.providers import legendastv
 
 
@@ -91,7 +91,7 @@ def setup_logging():
 
 
 def main(args):
-    subtitles.notify("Logging in Legendas.TV")
+    utils.notify("Logging in Legendas.TV")
     ltv = legendastv.LegendasTV()
 
     for path in args:
@@ -134,5 +134,5 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         pass
     except Exception as e:
-        subtitles.notify("ERROR! Check log for details")
+        utils.notify("ERROR! Check log for details")
         log.critical(e, exc_info=1)
