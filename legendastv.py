@@ -55,7 +55,7 @@ def run_demo():
     # API tests
     log.info("Running API demo mode")
     search = "gattaca"
-    ltv = legendastv.LegendasTV(g.options['login'], g.options['password'])
+    ltv = legendastv.LegendasTV()
     movies = ltv.getMovies(search)
     if movies:
         ltv.getSubtitlesByMovie(movies[0], allpages=False)
@@ -93,6 +93,10 @@ def setup_logging():
 def main(args):
     utils.notify("Logging in Legendas.TV")
     ltv = legendastv.LegendasTV()
+    if not ltv.login(g.options['login'],
+                     g.options['password']):
+        utils.notify("ERROR logging in, check your config file!")
+        return
 
     for path in args:
         filename = unicode(path, "utf-8")

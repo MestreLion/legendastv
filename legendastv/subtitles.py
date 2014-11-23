@@ -26,7 +26,7 @@ import re
 import logging
 
 from . import g, datatools as dt, filetools as ft
-from .providers import opensubtitles
+from .providers import opensubtitles, legendastv as ltv
 from .utils import notify
 
 log = logging.getLogger(__name__)
@@ -73,7 +73,11 @@ def retrieve_subtitle_for_movie(usermovie, login=None, password=None,
     # Log in
     if not legendastv:
         notify("Logging in Legendas.TV", icon=g.globals['appicon'])
-        legendastv = legendastv.LegendasTV(login, password)
+        legendastv = ltv.LegendasTV()
+        if not legendastv.login(login    or g.options['login'],
+                                password or g.options['password']):
+            notify("ERROR logging in, check your config file!")
+            return
 
     usermovie = os.path.abspath(usermovie)
     print_debug("Target: %s" % usermovie)

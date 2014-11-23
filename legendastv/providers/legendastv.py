@@ -120,21 +120,22 @@ class LegendasTV(HttpBot, Provider):
 
     _re_sub_language = re.compile(r"idioma/\w+_(\w+)\.")
 
-    def __init__(self, login=None, password=None):
+    def __init__(self):
         super(LegendasTV, self).__init__(self.url)
 
-        self.login    = login    or g.options['login']
-        self.password = password or g.options['password']
-
-        if not (self.login and self.password):
+    def login(self, login, password):
+        if not (login and password):
             return
 
         url = "/login"
-        log.info("Logging into %s as %s", self.base_url + url, self.login)
+        log.info("Logging in %s as %s", self.base_url + url, login)
 
-        self.get(url, {'data[User][username]': self.login,
-                       'data[User][password]': self.password})
+        response = self.get(url, {'data[User][username]': login,
+                                  'data[User][password]': password})
 
+        # Check login: url redirect and logout link available
+        return (not response.geturl().endswith(url)
+                and b'href="/users/logout"' in response.read())
 
     languages = dict(
         pb = dict(id= 1, code="brazil",  name="Português-BR"),
