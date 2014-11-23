@@ -257,7 +257,15 @@ def retrieve_subtitle_for_movie(usermovie, login=None, password=None,
         notify("Downloading '%s' from '%s'" % (subtitles[0]['release'],
                                                subtitles[0]['user_name']))
         archive = legendastv.downloadSubtitle(subtitles[0]['hash'], savedir)
+        if not archive:
+            notify("ERROR downloading archive!")
+            return
+
         files = ft.extract_archive(archive, savedir, [".srt"])
+        if not files:
+            notify("ERROR! Archive is empty or corrupt")
+            return
+
         if len(files) > 1:
             # Damn those multi-file archives!
             notify("%s subtitles in archive" % len(files))

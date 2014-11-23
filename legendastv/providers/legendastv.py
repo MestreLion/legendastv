@@ -122,6 +122,7 @@ class LegendasTV(HttpBot, Provider):
 
     def __init__(self):
         super(LegendasTV, self).__init__(self.url)
+        self.auth = False
 
     def login(self, login, password):
         if not (login and password):
@@ -134,8 +135,9 @@ class LegendasTV(HttpBot, Provider):
                                   'data[User][password]': password})
 
         # Check login: url redirect and logout link available
-        return (not response.geturl().endswith(url)
-                and b'href="/users/logout"' in response.read())
+        self.auth = (not response.geturl().endswith(url)
+                     and b'href="/users/logout"' in response.read())
+        return self.auth
 
     languages = dict(
         pb = dict(id= 1, code="brazil",  name="Português-BR"),
@@ -362,6 +364,9 @@ class LegendasTV(HttpBot, Provider):
             if empty, the one returned from the website.
             Return the filename (with full path) of the downloaded archive
         """
+        if not self.auth:
+            log.warn("Subtitle download requires user to be logged in")
+
         print_debug("Downloading archive for subtitle '%s'" % hash)
         result = self.download('/downloadarquivo/' + hash, dir, basename)
         print_debug("Archive saved as '%s'" % (result))

@@ -243,7 +243,17 @@ def extract_archive(archive, dir="", extlist=[], keep=False):
 
     files = []
 
+    def delete(filename):
+        try:
+            if not keep: os.remove(filename)
+        except IOError as e:
+            log.error(e)
+
     af = ArchiveFile(archive)
+    if not af:
+        log.error("File is not a supported archive format")
+        delete(archive)
+        return
 
     log.debug("%d files in archive '%s': %r",
               len(af.namelist()), os.path.basename(archive), af.namelist())
@@ -260,11 +270,7 @@ def extract_archive(archive, dir="", extlist=[], keep=False):
             files.append(outfile)
 
     af.close()
-
-    try:
-        if not keep: os.remove(archive)
-    except IOError as e:
-        log.error(e)
+    delete(archive)
 
     log.info("%d extracted files in '%s', filtered by %s\n\t%s",
              len(files), archive, extlist, dt.print_dictlist(files))
