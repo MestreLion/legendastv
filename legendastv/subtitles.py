@@ -93,12 +93,9 @@ def retrieve_subtitle_for_movie(usermovie, login=None, password=None,
     movie.update({'episode': '', 'season': '', 'type': '' })
 
     # Try to tell movie from episode
-    _re_season_episode = re.compile(r"S(?P<season>\d\d?)E(?P<episode>\d\d?)",
+    _re_season_episode = re.compile(r"[S]?(?P<season>\d\d?)[Ex](?P<episode>\d\d?)",
                                     re.IGNORECASE)
     data_obj = re.search(_re_season_episode, filename) # always use filename
-    if not data_obj:
-        _re_season_episode = re.compile(r"(?P<season>\d\d?)x(?P<episode>\d\d?)", re.IGNORECASE)
-        data_obj = re.search(_re_season_episode, filename) # always use filename
     if data_obj:
         data = data_obj.groupdict()
         movie['type']    = 'episode'
@@ -259,7 +256,7 @@ def retrieve_subtitle_for_movie(usermovie, login=None, password=None,
 
         files = ft.extract_archive(archive, savedir, [".srt"])
         if not files:
-            notify("ERROR! Archive is empty or corrupt")
+            notify("ERROR! Archive is corrupt or has no subtitles")
             return
 
         if len(files) > 1:
@@ -268,25 +265,41 @@ def retrieve_subtitle_for_movie(usermovie, login=None, password=None,
 
             # Build a new list suitable for comparing
             files = [dict(compare=dt.clean_string(os.path.basename(
-                                                  os.path.splitext(f)[0])),
+                                                  os.path.splitext(f.split('\\')[-1]
+                                                                   if '\\' in f
+                                                                   else f)[0])),
                           original=f)
                      for f in files]
 
-            # Should we use file or dir as a reference?
-            dirname_compare  = dt.clean_string(dirname)
-            filename_compare = dt.clean_string(filename)
-            if dt.get_similarity(dirname_compare , files[0]['compare']) > \
-               dt.get_similarity(filename_compare, files[0]['compare']):
-                result = dt.choose_best_by_key(dirname_compare,
-                                               files, 'compare')
-            else:
-                result = dt.choose_best_by_key(filename_compare,
-                                               files, 'compare')
+            # If Series, match by Episode
+            file = None
+            if movie['type'] == 'episode':
+                for file in files:
+                    data_obj = re.search(_re_season_episode, file['original'])
+                    if data_obj:
+                        data = data_obj.groupdict()
+                        if int(data['episode']) == int(movie['episode']):
+                            print_debug("Chosen for episode %s: %s" % (movie['episode'],
+                                                                       file['original']))
+                            break
+            if not file:
+                # Use name/release matching
+                # Should we use file or dir as a reference?
+                dirname_compare  = dt.clean_string(dirname)
+                filename_compare = dt.clean_string(filename)
+                if movie['type'] == 'episode' or \
+                   dt.get_similarity(dirname_compare , files[0]['compare']) < \
+                   dt.get_similarity(filename_compare, files[0]['compare']):
+                    result = dt.choose_best_by_key(filename_compare,
+                                                   files, 'compare')
+                else:
+                    result = dt.choose_best_by_key(dirname_compare,
+                                                   files, 'compare')
+                file = result['best']
 
-            file = result['best']
             files.remove(file) # remove the chosen from list
             [os.remove(f['original']) for f in files] # delete the list
-            file = result['best']['original'] # convert back to string
+            file = file['original'] # convert back to string
         else:
             file = files[0] # so much easier...
 
