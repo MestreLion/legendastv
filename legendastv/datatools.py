@@ -23,11 +23,9 @@ import re
 import difflib
 import logging
 
+from . import utils
+
 log = logging.getLogger(__name__)
-
-
-def print_debug(text):
-    log.debug('\n\t'.join(text.split('\n')))
 
 
 def fields_to_int(dict, *keys):
@@ -115,7 +113,7 @@ def choose_best_by_key(reference, dictlist, key, ignorecase=True):
 
     result = dict(best = dictlist[best['index']],
                   similarity = best['similarity'])
-    print_debug("Chosen best for '%s' in '%s': %s" % (reference, key, result))
+    utils.print_debug("Chosen best for '%s' in '%s': %s" % (reference, key, result))
     return result
 
 

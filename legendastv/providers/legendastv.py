@@ -35,7 +35,7 @@ from datetime import datetime
 
 from .. import g, datatools as dt
 from . import Provider
-from ..utils import notify
+from ..utils import notify, print_debug
 
 log = logging.getLogger(__name__)
 
@@ -44,9 +44,6 @@ log = logging.getLogger(__name__)
 # <blank> - All subtitles
 # d       - Destaque (Highlighted subtitles only)
 # p       - Pack (Subtitle packs only, usually for series seasons)
-
-def print_debug(text):
-    log.debug('\n\t'.join(text.split('\n')))
 
 class HttpBot(object):
     """ Base class for other handling basic http tasks like requesting a page,

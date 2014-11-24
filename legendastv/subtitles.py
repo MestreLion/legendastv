@@ -27,13 +27,9 @@ import logging
 
 from . import g, datatools as dt, filetools as ft
 from .providers import opensubtitles, legendastv as ltv
-from .utils import notify
+from .utils import notify, print_debug
 
 log = logging.getLogger(__name__)
-
-
-def print_debug(text):
-    log.debug('\n\t'.join(text.split('\n')))
 
 
 def guess_movie_info(text):

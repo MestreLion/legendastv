@@ -56,3 +56,7 @@ def notify(body, summary='', icon=''):
     g.globals['notifier'].Notify(app_name, replaces_id, app_icon, summary, body,
                                 actions, hints, timeout)
     log.notify(body)
+
+
+def print_debug(text):
+    log.debug('\n\t'.join(text.split('\n')))
