@@ -25,7 +25,7 @@ import os
 import re
 import logging
 
-from . import g, datatools as dt, filetools as ft
+from . import g, datatools as dt, filetools as ft, srtclean
 from .providers import opensubtitles, legendastv as ltv
 from .utils import notify, print_debug
 
@@ -306,6 +306,7 @@ def retrieve_subtitle_for_movie(usermovie, login=None, password=None,
         newname = os.path.join(savedir, filename) + ".srt"
         #notify("Matching '%s'" % os.path.basename(file)) # enough notifications
         os.rename(file, newname)
+        srtclean.main(['--in-place', '--no-backup', '--convert', 'UTF-8', newname])
         notify("DONE!")
         return True
 
