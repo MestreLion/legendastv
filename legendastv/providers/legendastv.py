@@ -73,7 +73,7 @@ class HttpBot(object):
 
         # If save name is not set, use the downloaded file name
         if not filename:
-            filename = download.geturl()
+            filename = download.geturl().rstrip("/")
 
         # Handle dir
         dir = os.path.expanduser(dir)
@@ -367,8 +367,15 @@ class LegendasTV(HttpBot, Provider):
         if not self.auth:
             log.warn("Subtitle download requires user to be logged in")
 
-        print_debug("Downloading archive for subtitle '%s'" % hash)
-        result = self.download('/downloadarquivo/' + hash, dir, basename)
+        url = '/downloadarquivo/%s' % hash
+        print_debug("Downloading archive for subtitle from %s" % url)
+
+        try:
+            result = self.download(url, dir, basename)
+        except (urllib2.HTTPError, urllib2.httplib.BadStatusLine) as e:
+            log.error(e)
+            return
+
         print_debug("Archive saved as '%s'" % (result))
         return result
 
