@@ -1,0 +1,35 @@
+#!/bin/bash
+
+nautilus_scripts=$(readlink -f "$HOME/.gnome2/nautilus-scripts")
+link_nautilus="$nautilus_scripts"/Legendas.TV
+link_exec="$HOME"/.local/bin/legendastv
+
+mydir=$(dirname "$(readlink -f "$0")")
+configdir=${XDG_CONFIG_HOME:-"$HOME"/.config}/legendastv
+
+relpath(){ python -c "import sys, os.path; print os.path.relpath(*sys.argv[1:])" "$@"; }
+
+echo "*** Creating Nautilus Scripts symlink"
+if ! [[ -h "$link_nautilus" ]]; then
+	ln -s "$(relpath "$mydir" "$nautilus_scripts")"/nautilus-script "$link_nautilus"
+fi
+
+echo "*** Creating executable symlink to '$link_exec'"
+mkdir -p "$(dirname "$link_exec")"
+if ! [[ -h "$link_exec" ]]; then
+	ln -s "$(relpath "$mydir" "$(dirname "$link_exec")")"/legendastv.py "$link_exec"
+fi
+
+echo "*** Installing dependencies"
+
+# for up to 13.10
+sudo apt-get install -y python-pip unrar python-magic python-lxml
+sudo pip install rarfile pysrt
+
+# for 14.04 onwards
+# python-unrar will pull unrar-free instead of unrar
+#sudo apt-get install -y python-unrar python-magic python-pysrt python-lxml
+
+echo "*** MANUALLY open '$configdir/legendastv.ini' and fill in your username and password!"
+echo "*** MANUALLY add '$(dirname "$link_exec")' to your \$PATH!"
+echo "Optionally, open '$configdir/srtclean_blacklist.txt' and add some blacklist strings"
