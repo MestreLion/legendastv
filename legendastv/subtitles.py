@@ -23,6 +23,7 @@ from __future__ import unicode_literals, absolute_import, division
 
 import os
 import re
+import shutil
 import logging
 
 from . import g, datatools as dt, filetools as ft, srtclean
@@ -249,12 +250,14 @@ def retrieve_subtitle_for_movie(usermovie, login=None, password=None,
 
         notify("Downloading '%s' from '%s'" % (subtitles[0]['release'],
                                                subtitles[0]['user_name']))
-        archive = legendastv.downloadSubtitle(subtitles[0]['hash'], savedir)
+        archive = legendastv.downloadSubtitle(subtitles[0]['hash'],
+                                              os.path.join(g.globals['cache_dir'],
+                                                           'archives'))
         if not archive:
             notify("ERROR downloading archive!")
             return
 
-        files = ft.extract_archive(archive, savedir, [".srt"])
+        files = ft.extract_archive(archive, extlist=["srt"], keep=True)
         if not files:
             notify("ERROR! Archive is corrupt or has no subtitles")
             return
@@ -264,11 +267,9 @@ def retrieve_subtitle_for_movie(usermovie, login=None, password=None,
             notify("%s subtitles in archive" % len(files))
 
             # Build a new list suitable for comparing
-            files = [dict(compare=dt.clean_string(os.path.basename(
-                                                  os.path.splitext(f.split('\\')[-1]
-                                                                   if '\\' in f
-                                                                   else f)[0])),
-                          original=f)
+            files = [dict(compare=dt.clean_string(os.path.basename(os.path.splitext(f)[0])),
+                          original=os.path.basename(f),
+                          full=f)
                      for f in files]
 
             # If Series, match by Episode
@@ -297,16 +298,12 @@ def retrieve_subtitle_for_movie(usermovie, login=None, password=None,
                                                    files, 'compare')
                 file = result['best']
 
-            files.remove(file) # remove the chosen from list
-            [os.remove(f['original']) for f in files] # delete the list
-            file = file['original'] # convert back to string
+            file = file['full'] # convert back to string
         else:
             file = files[0] # so much easier...
 
-        newname = os.path.join(savedir, filename) + ".srt"
-        #notify("Matching '%s'" % os.path.basename(file)) # enough notifications
-        os.rename(file, newname)
-        srtclean.main(['--in-place', '--no-backup', '--convert', 'UTF-8', newname])
+        srtclean.main(['--in-place', '--no-backup', '--convert', 'UTF-8', file])
+        shutil.copyfile(file, os.path.join(savedir, "%s.srt" % filename))
         notify("DONE!")
         return True
 

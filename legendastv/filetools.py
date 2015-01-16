@@ -221,33 +221,22 @@ def extension(path):
     return os.path.splitext(path)[1][1:].lower()
 
 
-def extract_archive(archive, dir="", extlist=[], keep=False):
+def extract_archive(archive, path=None, extlist=[], keep=False):
     """ Extract files from a zip or rar archive whose filename extension
-        (including the ".") is in extlist, or all files if extlist is empty.
+        (excluding the ".") is in extlist, or all files if extlist is empty.
         If keep is False, also delete the archive afterwards
         - archive is the archive filename (with path)
-        - dir is the extraction folder, same folder as archive if empty
+        - path is the extraction folder, by default the archive path without extension
+        - extlist is either a list or a comma-separated string
         return: a list with the filenames (with path) of extracted files
     """
 
-    # Clean up arguments
-    archive = os.path.expanduser(archive)
-    dir     = os.path.expanduser(dir)
-
-    # Convert string to a single-item list
-    if extlist and isinstance(extlist, basestring):
-        extlist = extlist.split()
-
-    if not os.path.isdir(dir):
-        dir = os.path.dirname(archive)
-
-    files = []
-
     def delete(filename):
-        try:
-            if not keep: os.remove(filename)
-        except IOError as e:
-            log.error(e)
+        if not keep:
+            try:
+                os.remove(filename)
+            except IOError as e:
+                log.error(e)
 
     af = ArchiveFile(archive)
     if not af:
@@ -258,23 +247,33 @@ def extract_archive(archive, dir="", extlist=[], keep=False):
     log.debug("%d files in archive '%s': %r",
               len(af.namelist()), os.path.basename(archive), af.namelist())
 
-    for f in [f for f in af.namelist()
-                if af.getinfo(f).file_size > 0 and # to exclude dirs
-                    (not extlist or
-                     os.path.splitext(f)[1].lower() in extlist)]:
+    if path is None:
+        path = os.path.splitext(archive)[0]
+        if not os.path.exists(path):
+            safemakedirs(path)
+            af.extractall(path)
 
-        outfile = os.path.join(dir, os.path.basename(f))
+    if isinstance(extlist, basestring):
+        extlist = extlist.split(",")
 
-        with open(outfile, 'wb') as output:
-            output.write(af.read(f))
-            files.append(outfile)
+    outputfiles = []
+    for root, _, files in os.walk(path):
+        for name in files:
+            filepath = os.path.join(root, name)
+            ext = os.path.splitext(name)[1][1:].lower()
+
+            if not extlist or ext in extlist:
+                outputfiles.append(filepath)
+
+            elif ext in ['zip', 'rar']:
+                outputfiles.extend(extract_archive(filepath, extlist=extlist, keep=True))
 
     af.close()
     delete(archive)
 
     log.info("%d extracted files in '%s', filtered by %s\n\t%s",
-             len(files), archive, extlist, dt.print_dictlist(files))
-    return files
+             len(outputfiles), archive, extlist, dt.print_dictlist(outputfiles))
+    return outputfiles
 
 
 def ArchiveFile(filename):
