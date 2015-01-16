@@ -306,3 +306,11 @@ if __name__ == '__main__':
             print os.path.realpath(path)
             print mimetype(path)
             print "%svideo" % ("" if is_video(path) else "NOT ")
+
+
+def safemakedirs(path):
+    try:
+        os.makedirs(path, 0700)
+    except OSError as e:
+        if e.errno != 17:  # File exists
+            raise

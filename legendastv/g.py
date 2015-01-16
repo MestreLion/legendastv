@@ -74,12 +74,14 @@ mapping = {
 
 def read_config():
 
+    from . import filetools
+
     section = "Preferences"
     mapping_section = "Mapping"
     cp = ConfigParser.SafeConfigParser()
 
     if not os.path.exists(globals['config_file']):
-        safemakedirs(globals['config_dir'])
+        filetools.safemakedirs(globals['config_dir'])
         cp.add_section(section)
         cp.add_section(mapping_section)
         for option in options:
@@ -121,10 +123,3 @@ def read_config():
             except ValueError as e:
                 log.warn("%s in '%s' option of %s", e, option,
                          globals['config_file'])
-
-def safemakedirs(path):
-    try:
-        os.makedirs(path, 0700)
-    except OSError as e:
-        if e.errno != 17:  # File exists
-            raise

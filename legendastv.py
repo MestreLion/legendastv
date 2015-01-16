@@ -70,7 +70,7 @@ def setup_logging():
     sh = logging.StreamHandler()
 
     # Rotating log file (10 x 1MB)
-    g.safemakedirs(os.path.dirname(g.globals['log_file']))
+    filetools.safemakedirs(os.path.dirname(g.globals['log_file']))
     fh = logging.handlers.RotatingFileHandler(g.globals['log_file'],
                                               maxBytes=2**20,
                                               backupCount=10,
