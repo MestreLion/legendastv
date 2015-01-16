@@ -194,11 +194,11 @@ def retrieve_subtitle_for_movie(usermovie, login=None, password=None,
             if movie['type'] == 'episode':
                 notify("Searching subs for '%s' - Episode %d" %
                        (result['best']['title_br'], int(movie['episode'])),
-                       icon=os.path.join(g.globals['cache_dir'],
+                       icon=os.path.join(g.globals['cache_dir'], 'thumbs',
                                          os.path.basename(result['best']['thumb'] or "")))
             else:
                 notify("Searching subs for '%s'" % (result['best']['title']),
-                       icon=os.path.join(g.globals['cache_dir'],
+                       icon=os.path.join(g.globals['cache_dir'], 'thumbs',
                                          os.path.basename(result['best']['thumb'] or "")))
 
             subs = legendastv.getSubtitlesByMovie(movie)

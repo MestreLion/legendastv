@@ -88,12 +88,12 @@ class HttpBot(object):
 
         return filename
 
-    def cache(self, url):
-        filename = os.path.join(g.globals['cache_dir'], os.path.basename(url))
+    def cache(self, url, subdir=""):
+        filename = os.path.join(g.globals['cache_dir'], subdir, os.path.basename(url))
         if os.path.exists(filename):
             return True
         else:
-            return (self.download(url, g.globals['cache_dir']))
+            return (self.download(url, os.path.join(g.globals['cache_dir'], subdir)))
 
     def quote(self, text):
         """ Quote a text for URL usage, similar to urllib.quote_plus.
@@ -233,7 +233,7 @@ class LegendasTV(HttpBot, Provider):
             if movie['thumb']:
                 movie['thumb'] = "http://i.legendas.tv/poster/" + movie['thumb']
                 if g.options['cache']:
-                    self.cache(movie['thumb'])
+                    self.cache(movie['thumb'], 'thumbs')
             movies.append(movie)
 
         print_debug("Titles found for '%s':\n%s" % (text,
