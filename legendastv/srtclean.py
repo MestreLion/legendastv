@@ -191,7 +191,7 @@ def main(argv=None):
 def clean(subs, blacklistfile, rebuild_index=True):
     try:
         with open(blacklistfile, 'r') as fp:
-            blacklist = fp.read().strip().split('\n\n')
+            blacklist = fp.read().decode('utf-8').strip().split('\n\n')
     except IOError:
         return
 
