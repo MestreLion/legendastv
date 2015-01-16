@@ -99,7 +99,7 @@ def main(args):
         return
 
     for path in args:
-        filename = unicode(path, "utf-8")
+        filename = os.path.expanduser(unicode(path, "utf-8"))
 
         if os.path.isdir(filename):
             for root, _, files in os.walk(filename):
