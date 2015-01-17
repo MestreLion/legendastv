@@ -252,7 +252,8 @@ def retrieve_subtitle_for_movie(usermovie, login=None, password=None,
                                                subtitles[0]['user_name']))
         archive = legendastv.downloadSubtitle(subtitles[0]['hash'],
                                               os.path.join(g.globals['cache_dir'],
-                                                           'archives'))
+                                                           'archives'),
+                                              overwrite=False)
         if not archive:
             notify("ERROR downloading archive!")
             return

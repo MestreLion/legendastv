@@ -68,7 +68,7 @@ class HttpBot(object):
         else:
             return self._opener.open(url)
 
-    def download(self, url, dir, filename=""):
+    def download(self, url, dir, filename="", overwrite=True):
         download = self.get(url)
 
         # If save name is not set, use the downloaded file name
@@ -83,8 +83,11 @@ class HttpBot(object):
         # Combine dir to convert filename to a full path
         filename = os.path.join(dir, os.path.basename(filename))
 
-        with open(filename,'wb') as f:
-            f.write(download.read())
+        if overwrite or not os.path.isfile(filename):
+            with open(filename,'wb') as f:
+                f.write(download.read())
+        else:
+            log.debug("Using cached file")
 
         return filename
 
@@ -358,7 +361,7 @@ class LegendasTV(HttpBot, Provider):
         return subtitles
 
 
-    def downloadSubtitle(self, hash, dir, basename=""):
+    def downloadSubtitle(self, hash, dir, basename="", overwrite=True):
         """ Download a subtitle archive based on subtitle id.
             Saves the archive as dir/basename, using the basename provided or,
             if empty, the one returned from the website.
@@ -371,7 +374,7 @@ class LegendasTV(HttpBot, Provider):
         print_debug("Downloading archive for subtitle from %s" % url)
 
         try:
-            result = self.download(url, dir, basename)
+            result = self.download(url, dir, basename, overwrite=overwrite)
         except (urllib2.HTTPError, urllib2.httplib.BadStatusLine) as e:
             log.error(e)
             return
