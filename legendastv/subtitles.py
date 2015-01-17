@@ -258,7 +258,7 @@ def retrieve_subtitle_for_movie(usermovie, login=None, password=None,
             notify("ERROR downloading archive!")
             return
 
-        files = ft.extract_archive(archive, extlist=["srt"], keep=True)
+        files = ft.extract_archive(archive, extlist=["srt"])
         if not files:
             notify("ERROR! Archive is corrupt or has no subtitles")
             return

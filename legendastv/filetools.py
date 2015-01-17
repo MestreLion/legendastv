@@ -221,27 +221,20 @@ def extension(path):
     return os.path.splitext(path)[1][1:].lower()
 
 
-def extract_archive(archive, path=None, extlist=[], keep=False):
-    """ Extract files from a zip or rar archive whose filename extension
-        (excluding the ".") is in extlist, or all files if extlist is empty.
-        If keep is False, also delete the archive afterwards
-        - archive is the archive filename (with path)
-        - path is the extraction folder, by default the archive path without extension
-        - extlist is either a list or a comma-separated string
-        return: a list with the filenames (with path) of extracted files
+def extract_archive(archive, path=None, extlist=[], keep=True, overwrite=False):
+    """ Extract all files from a zip or rar archive
+        - archive: the archive filename (with path)
+        - path: the extraction folder, by default the archive path without extension
+        - extlist: list or a comma-separated string of file extensions (excluding the ".")
+        - keep: if False, archive is deleted after succesful extraction
+        - overwrite: if false ans path exists, will skip extraction and read path contents
+        return: a list of extracted filenames (with path) matching extlist,
+            or all extracted files if extlist is empty
     """
-
-    def delete(filename):
-        if not keep:
-            try:
-                os.remove(filename)
-            except IOError as e:
-                log.error(e)
 
     af = ArchiveFile(archive)
     if not af:
         log.error("File is not a supported archive format")
-        delete(archive)
         return
 
     log.debug("%d files in archive '%s': %r",
@@ -249,9 +242,10 @@ def extract_archive(archive, path=None, extlist=[], keep=False):
 
     if path is None:
         path = os.path.splitext(archive)[0]
-        if not os.path.exists(path):
-            safemakedirs(path)
-            af.extractall(path)
+
+    if overwrite or not os.path.exists(path):
+        safemakedirs(path)
+        af.extractall(path)
 
     if isinstance(extlist, basestring):
         extlist = extlist.split(",")
@@ -266,10 +260,18 @@ def extract_archive(archive, path=None, extlist=[], keep=False):
                 outputfiles.append(filepath)
 
             elif ext in ['zip', 'rar']:
-                outputfiles.extend(extract_archive(filepath, extlist=extlist, keep=True))
+                outputfiles.extend(extract_archive(filepath,
+                                                   extlist=extlist,
+                                                   keep=True,
+                                                   overwrite=False))
 
     af.close()
-    delete(archive)
+
+    if not keep:
+        try:
+            os.remove(archive)
+        except IOError as e:
+            log.error(e)
 
     log.info("%d extracted files in '%s', filtered by %s\n\t%s",
              len(outputfiles), archive, extlist, dt.print_dictlist(outputfiles))
