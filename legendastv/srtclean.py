@@ -196,11 +196,12 @@ def clean(subs, blacklistfile, rebuild_index=True):
         return
 
     deleted = []
-    for sub in reversed(subs):
+    for i, sub in reversed(list(enumerate(subs))):
         for text in blacklist:
             if text.replace('\\n', '\n').lower() in sub.text.lower():
                 deleted.append(sub)
-                subs.remove(sub)
+                del subs[i]
+                break
 
     if deleted:
         log.info("%d items deleted", len(deleted))
