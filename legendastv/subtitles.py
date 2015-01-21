@@ -303,7 +303,14 @@ def retrieve_subtitle_for_movie(usermovie, login=None, password=None,
         else:
             file = files[0] # so much easier...
 
-        srtclean.main(['--in-place', '--no-backup', '--convert', 'UTF-8', file])
+        srtclean.main(['--in-place', '--convert', 'UTF-8', file])
+        srtbackup = "%s.srtclean.bak" % file
+        # If srtclean modified the subtitle, Rename the modified file and revert the backup
+        if os.path.isfile(srtbackup):
+            srtfile = "%s.srtclean.srt" % os.path.splitext(file)[0]
+            os.rename(file, srtfile)
+            os.rename(srtbackup, file)
+            file = srtfile
         shutil.copyfile(file, os.path.join(savedir, "%s.srt" % filename))
         notify("DONE!")
         return True
