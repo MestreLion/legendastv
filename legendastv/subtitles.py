@@ -223,14 +223,15 @@ def retrieve_subtitle_for_movie(usermovie, login=None, password=None,
         if movie['type'] == 'episode':
             episodes = []
             for sub in subs:
-                if sub['pack']:
-                    episodes.append(sub)
-                    continue
                 data_obj = re.search(_re_season_episode, sub['release'])
+                # Check whether the episode matches. The subtitle should never
+                # be selected if the episode doesn't match, even if it's a pack.
                 if data_obj:
                     data = data_obj.groupdict()
                     if int(data['episode']) == int(movie['episode']):
                         episodes.append(sub)
+                elif sub['pack']:
+                    episodes.append(sub)
             subs = episodes
 
         subtitles = legendastv.rankSubtitles(movie, subs)
