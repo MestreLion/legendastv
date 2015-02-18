@@ -161,14 +161,14 @@ def retrieve_subtitle_for_movie(usermovie, login=None, password=None,
                                                         season_to_ord(movie['season'])),
                icon=g.globals['appicon'])
     else:
-        notify("Searching titles for '%s'" % movie['title'],
+        notify("Searching titles for '%s'", movie['title'],
                icon=g.globals['appicon'])
 
     movies = legendastv.getMovies(movie['title'])
 
     if len(movies) > 0:
         # Nice! Lets pick the best movie...
-        notify("%s titles found" % len(movies))
+        notify("%s titles found", len(movies))
 
         # For Series, add Season to title and compare with native title
         if movie['type'] == 'episode':
@@ -196,12 +196,13 @@ def retrieve_subtitle_for_movie(usermovie, login=None, password=None,
             movie.update(result['best'])
 
             if movie['type'] == 'episode':
-                notify("Searching subs for '%s' - Episode %d" %
-                       (result['best']['title_br'], int(movie['episode'])),
+                notify("Searching subs for '%s' - Episode %d",
+                       result['best']['title_br'],
+                       int(movie['episode']),
                        icon=os.path.join(g.globals['cache_dir'], 'thumbs',
                                          os.path.basename(result['best']['thumb'] or "")))
             else:
-                notify("Searching subs for '%s'" % (result['best']['title']),
+                notify("Searching subs for '%s'", result['best']['title'],
                        icon=os.path.join(g.globals['cache_dir'], 'thumbs',
                                          os.path.basename(result['best']['thumb'] or "")))
 
@@ -220,7 +221,7 @@ def retrieve_subtitle_for_movie(usermovie, login=None, password=None,
     if len(subs) > 0:
 
         # Good! Lets choose and download the best subtitle...
-        notify("%s subtitles found" % len(subs))
+        notify("%s subtitles found", len(subs))
 
         # For TV Series, consider only packs and matching episodes
         if movie['type'] == 'episode':
@@ -251,8 +252,9 @@ def retrieve_subtitle_for_movie(usermovie, login=None, password=None,
         # - "Eww, not even close! Let's try other search options"
         #   (show the search options used, let user edit them, and retry)
 
-        notify("Downloading '%s' from '%s'" % (subtitles[0]['release'],
-                                               subtitles[0]['user_name']))
+        notify("Downloading '%s' from '%s'",
+               subtitles[0]['release'],
+               subtitles[0]['user_name'])
         archive = legendastv.downloadSubtitle(subtitles[0]['hash'],
                                               os.path.join(g.globals['cache_dir'],
                                                            'archives'),
@@ -268,7 +270,7 @@ def retrieve_subtitle_for_movie(usermovie, login=None, password=None,
 
         if len(files) > 1:
             # Damn those multi-file archives!
-            notify("%s subtitles in archive" % len(files))
+            notify("%s subtitles in archive", len(files))
 
             # Build a new list suitable for comparing
             files = [dict(compare=dt.clean_string(os.path.basename(os.path.splitext(f)[0])),
