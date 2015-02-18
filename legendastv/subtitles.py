@@ -148,6 +148,22 @@ def retrieve_subtitle_for_movie(usermovie, login=None, password=None,
 
     movies = legendastv.getMovies(movie['title'])
 
+    if movie['type'] == 'movie':
+        # try an experimental version
+        if not movies:
+            notify("No titles found.")
+            return
+
+        if len(movies) > 1:
+            title = legendastv.rankTitles(movie, movies)[0]
+        else:
+            title = movies[0]
+
+        notify("Searching subs for '%s'", title['title'],
+               icon=os.path.join(g.globals['cache_dir'], 'thumbs',
+                                 os.path.basename(title['thumb'] or "")))
+        return
+
     if len(movies) > 0:
         # Nice! Lets pick the best movie...
         notify("%s titles found", len(movies))
