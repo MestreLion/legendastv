@@ -68,7 +68,7 @@ class HttpBot(object):
         else:
             return self._opener.open(url)
 
-    def download(self, url, dir, filename="", overwrite=True):
+    def download(self, url, savedir, filename="", overwrite=True):
         download = self.get(url)
 
         # If save name is not set, use the downloaded file name
@@ -76,12 +76,12 @@ class HttpBot(object):
             filename = download.geturl().rstrip("/")
 
         # Handle dir
-        dir = os.path.expanduser(dir)
-        if not os.path.isdir(dir):
-            os.makedirs(dir)
+        savedir = os.path.expanduser(savedir)
+        if not os.path.isdir(savedir):
+            os.makedirs(savedir)
 
         # Combine dir to convert filename to a full path
-        filename = os.path.join(dir, os.path.basename(filename))
+        filename = os.path.join(savedir, os.path.basename(filename))
 
         if overwrite or not os.path.isfile(filename):
             with open(filename,'wb') as f:
@@ -181,21 +181,23 @@ class LegendasTV(HttpBot, Provider):
 
         log.debug("updating languages cache")
         for e in tree.xpath(".//select[@name='data[id_idioma]']/option"):
-            id, name = int("0%s" % e.attrib['value']), e.text
-            if id:
-                for lang, value in dt.iter_find_in_dd(self.languages, 'id', id):
+            langid, name = int("0%s" % e.attrib['value']), e.text
+            if langid:
+                for lang, value in dt.iter_find_in_dd(self.languages,
+                                                      'id', langid):
                     if not value['name'] == name:
                         log.debug("Updating language '%s' (%d): '%s' -> '%s'",
-                                  lang, id, value['name'], name)
+                                  lang, langid, value['name'], name)
                         self.languages[lang].update({'name': name})
                     break
                 else:
-                    log.warn("Language not found: %d - '%s'", id, name)
+                    log.warn("Language not found: %d - '%s'", langid, name)
 
         # save the cache
         try:
             with open(cachefile, 'w') as f:
-                json.dump(self.languages, f, sort_keys=True, indent=2, separators=(',', ':'))
+                json.dump(self.languages, f, sort_keys=True, indent=2,
+                          separators=(',', ':'))
         except IOError:
             pass
 
@@ -246,28 +248,34 @@ class LegendasTV(HttpBot, Provider):
 
     """ Convenience wrappers for the main getSubtitles method """
 
-    def getSubtitlesByMovie(self, movie, type=None, lang=None, allpages=True):
+    def getSubtitlesByMovie(self, movie, stype=None, lang=None, allpages=True):
         return self.getSubtitles(movie_id=movie['id'],
-                                 lang=lang, allpages=allpages)
+                                 stype=stype,
+                                 lang=lang,
+                                 allpages=allpages)
 
-    def getSubtitlesByMovieId(self, movie_id, type=None, lang=None, allpages=True):
+    def getSubtitlesByMovieId(self, movie_id, stype=None, lang=None, allpages=True):
         return self.getSubtitles(movie_id=movie_id,
-                                 lang=lang, allpages=allpages)
+                                 stype=stype,
+                                 lang=lang,
+                                 allpages=allpages)
 
-    def getSubtitlesByText(self, text, type=None, lang=None, allpages=True):
-        return self.getSubtitles(text=text, type=type,
-                                 lang=lang, allpages=allpages)
+    def getSubtitlesByText(self, text, stype=None, lang=None, allpages=True):
+        return self.getSubtitles(text=text,
+                                 stype=stype,
+                                 lang=lang,
+                                 allpages=allpages)
 
-    def getSubtitles(self, text="", type=None, lang=None, movie_id=None,
+    def getSubtitles(self, text="", stype=None, lang=None, movie_id=None,
                        allpages=True):
         """ Main method for searching, parsing and retrieving subtitles info.
             Arguments:
-            text - the text to search for
-            type - the type of subtitle. Either blank or a char as:
-                   'p' - for subtitle pack (usually for a Series' whole Season)
-                   'd' - destaque (highlighted subtitle, considered superior)
-            lang - The subtitle language to search for. An int as defined
-                   in constants
+            text  - The text to search for
+            stype - The type of subtitle. Either blank or a char as:
+                     'p' - for subtitle pack (usually for a Series' whole Season)
+                     'd' - destaque (highlighted subtitle, considered superior)
+            lang  - The subtitle language to search for. An int as defined
+                      in constants
             movie_id - search all subtitles from the specified movie. If used,
                        text and type (but not lang) are ignored
             Either text or movie_id must be provided
@@ -296,8 +304,8 @@ class LegendasTV(HttpBot, Provider):
         else:
             url += "/-"
 
-        if type:
-            url += "/" + type
+        if stype:
+            url += "/" + stype
 
         page = 0
         lastpage = False
@@ -350,8 +358,8 @@ class LegendasTV(HttpBot, Provider):
             if not allpages:
                 lastpage = True
             else:
-                next = tree.xpath("//a[@class='load_more']")
-                if next:
+                nextpage = tree.xpath("//a[@class='load_more']")
+                if nextpage:
                     url = next[0].attrib['href']
                 else:
                     lastpage = True
@@ -361,7 +369,7 @@ class LegendasTV(HttpBot, Provider):
         return subtitles
 
 
-    def downloadSubtitle(self, hash, dir, basename="", overwrite=True):
+    def downloadSubtitle(self, filehash, savedir, basename="", overwrite=True):
         """ Download a subtitle archive based on subtitle id.
             Saves the archive as dir/basename, using the basename provided or,
             if empty, the one returned from the website.
@@ -370,11 +378,11 @@ class LegendasTV(HttpBot, Provider):
         if not self.auth:
             log.warn("Subtitle download requires user to be logged in")
 
-        url = '/downloadarquivo/%s' % hash
+        url = '/downloadarquivo/%s' % filehash
         print_debug("Downloading archive for subtitle from %s" % url)
 
         try:
-            result = self.download(url, dir, basename, overwrite=overwrite)
+            result = self.download(url, savedir, basename, overwrite=overwrite)
         except (urllib2.HTTPError, urllib2.httplib.BadStatusLine) as e:
             log.error(e)
             return

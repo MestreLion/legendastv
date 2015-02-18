@@ -55,7 +55,7 @@ def run_demo():
     # API tests
     log.info("Running API demo mode")
     search = "gattaca"
-    ltv = legendastv.LegendasTV()
+    ltv = legendastv.LegendasTV()  # no login required for searching
     movies = ltv.getMovies(search)
     if movies:
         ltv.getSubtitlesByMovie(movies[0], allpages=False)
@@ -78,10 +78,9 @@ def setup_logging():
 
     # Format them
     #format = '%(asctime)s %(name)-21s %(levelname)-6s %(message)s'
-    format = '%(asctime)s %(levelname)-8s %(message)s'
-    fmt = logging.Formatter(format)
-    fh.setFormatter(fmt)
-    sh.setFormatter(fmt)
+    formatter = logging.Formatter('%(asctime)s %(levelname)-8s %(message)s')
+    fh.setFormatter(formatter)
+    sh.setFormatter(formatter)
 
     # Add them to logger
     log.addHandler(fh)

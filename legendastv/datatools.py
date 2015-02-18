@@ -28,13 +28,13 @@ from . import utils
 log = logging.getLogger(__name__)
 
 
-def fields_to_int(dict, *keys):
+def fields_to_int(d, *keys):
     """ Helper function to cast several fields in a dict to int
         usage: int_fields(mydict, 'keyA', 'keyB', 'keyD')
     """
     for key in keys:
-        if dict[key] is not None:
-            dict[key] = int(dict[key])
+        if d[key] is not None:
+            d[key] = int(d[key])
 
 
 def get_similarity(text1, text2, ignorecase=True):
@@ -53,17 +53,17 @@ def clean_string(text):
     return text
 
 
-def filter_dict(dict, keys=[], whitelist=True):
+def filter_dict(d, keys=[], whitelist=True):
     """ Filter a dict, returning a copy with only the selected keys
         (or all *but* the selected keys, if not whitelist)
     """
     if keys:
         if whitelist:
-            return dict([(k, v) for (k, v) in dict.items() if k in keys])
+            return dict([(k, v) for (k, v) in d.items() if k in keys])
         else:
-            return dict([(k, v) for (k, v) in dict.items() if k not in keys])
+            return dict([(k, v) for (k, v) in d.items() if k not in keys])
     else:
-        return dict
+        return d
 
 
 def print_dictlist(dictlist, keys=None, whitelist=True):

@@ -125,15 +125,12 @@ def retrieve_subtitle_for_movie(usermovie, login=None, password=None,
     #  requires a full file copy over remote mounts (FTP/SSH)
     osdb_movies = []
     if not remote:
-        try:
-            osdb_movies = opensubtitles.videoinfo(usermovie)
-        except:
-            pass
+        osdb_movies = opensubtitles.videoinfo(usermovie)
 
-    # Filter results
-    osdb_movies = [m for m in osdb_movies
-                   if m['MovieKind'] != 'tv series' and
-                   (not movie['type'] or m['MovieKind']==movie['type'])]
+        # Filter results
+        osdb_movies = [m for m in osdb_movies
+                       if m['MovieKind'] != 'tv series' and
+                       (not movie['type'] or m['MovieKind']==movie['type'])]
 
     print_debug("%d OpenSubtitles titles found:\n%s" %
                 (len(osdb_movies), dt.print_dictlist(osdb_movies)))
@@ -262,20 +259,21 @@ def retrieve_subtitle_for_movie(usermovie, login=None, password=None,
         return
 
     try:
-        file = choose_srt(movie, archive)
+        srtfile = choose_srt(movie, archive)
     except g.LegendasError as e:
         notify(e)
         return
 
-    srtclean.main(['--in-place', '--convert', 'UTF-8', file])
-    srtbackup = "%s.srtclean.bak" % file
-    # If srtclean modified the subtitle, Rename the modified file and revert the backup
+    srtclean.main(['--in-place', '--convert', 'UTF-8', srtfile])
+    srtbackup = "%s.srtclean.bak" % srtfile
+    # If srtclean modified the subtitle,
+    # rename the modified file and revert the backup
     if os.path.isfile(srtbackup):
-        srtfile = "%s.srtclean.srt" % os.path.splitext(file)[0]
-        os.rename(file, srtfile)
-        os.rename(srtbackup, file)
-        file = srtfile
-    shutil.copyfile(file, os.path.join(savedir, "%s.srt" % filename))
+        cleanfile = "%s.srtclean.srt" % os.path.splitext(srtfile)[0]
+        os.rename(srtfile, cleanfile)
+        os.rename(srtbackup, srtfile)
+        srtfile = cleanfile
+    shutil.copyfile(srtfile, os.path.join(savedir, "%s.srt" % filename))
     notify("DONE!")
     return True
 
@@ -328,7 +326,7 @@ def choose_srt(movie, archive):
              for f in files]
 
     # If Series, match by Episode
-    file = None
+    srt = None
     if movie['type'] == 'episode':
         for item in files:
             data_obj = re.search(_re_season_episode, item['original'])
@@ -337,12 +335,12 @@ def choose_srt(movie, archive):
                 if int(data['episode']) == int(movie['episode']):
                     item['similarity'] = dt.get_similarity(movie['release'],
                                                            item['compare'])
-                    if not file or item['similarity'] > file['similarity']:
-                        file = item
-        if file:
+                    if not srt or item['similarity'] > srt['similarity']:
+                        srt = item
+        if srt:
             print_debug("Chosen for episode %s: %s" % (movie['episode'],
-                                                       file['original']))
-    if not file:
+                                                       srt['original']))
+    if not srt:
         # Use name/release matching
         # Should we use file or dir as a reference?
         dirname_compare  = dt.clean_string(movie['dirname'])
@@ -355,6 +353,6 @@ def choose_srt(movie, archive):
         else:
             result = dt.choose_best_by_key(dirname_compare,
                                            files, 'compare')
-        file = result['best']
+        srt = result['best']
 
-    return file['full'] # convert back to string
+    return srt['full'] # convert back to string

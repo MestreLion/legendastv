@@ -104,9 +104,9 @@ def find_subtitles(paths, recursive=False):
             for root, dirs, files in os.walk(path):
                 if not recursive:
                     del dirs[:]
-                for file in files:
-                    if ext(file) == 'srt':
-                        yield os.path.join(root, file)
+                for basename in files:
+                    if ext(basename) == 'srt':
+                        yield os.path.join(root, basename)
         else:
             if ext(path) == 'srt':
                 yield path

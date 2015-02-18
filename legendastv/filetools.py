@@ -209,8 +209,8 @@ def is_video(path):
              'ram', 'vnd.rn-realmedia', 'x-pn-realaudio',  # RealAudio/Media - ram, rm, rmvb
              'x-shockwave-flash',                          # Adobe Flash Player - swf
              ]
-    type, mime = mimetype(path).split('/')
-    return type == 'video' or mime in mimes
+    ftype, mime = mimetype(path).split('/')
+    return ftype == 'video' or mime in mimes
 
 
 def extension(path):
