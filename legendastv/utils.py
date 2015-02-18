@@ -28,11 +28,17 @@ from . import g
 log = logging.getLogger(__name__)
 
 
-def notify(body, summary='', icon=''):
+def notify(body, *args, **kwargs):
+    summary = kwargs.pop('summary', '')
+    icon    = kwargs.pop('icon',    '')
+    if kwargs:
+        raise TypeError("invalid arguments for notify(): %s" % kwargs)
+
+    logbody = body if not summary else " - ".join((summary, body))
 
     # Fallback for no notifications
     if not g.options['notifications']:
-        log.notify("%s - %s", summary, body)
+        log.notify(logbody, *args)
         return
 
     # Use the same interface object in all calls
@@ -49,13 +55,13 @@ def notify(body, summary='', icon=''):
     hints       = {'x-canonical-append': "" }  # merge if same summary
     timeout     = -1 # server default
 
-    if os.path.isfile(icon):
+    if icon and os.path.isfile(icon):
         g.globals['notify_icon'] = icon # save for later
     app_icon    = g.globals['notify_icon']
 
-    g.globals['notifier'].Notify(app_name, replaces_id, app_icon, summary, body,
-                                actions, hints, timeout)
-    log.notify(body)
+    g.globals['notifier'].Notify(app_name, replaces_id, app_icon, summary,
+                                 body % args, actions, hints, timeout)
+    log.notify(logbody, *args)
 
 
 def print_debug(text):
