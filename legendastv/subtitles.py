@@ -62,7 +62,7 @@ def guess_movie_info(text):
 
 
 def retrieve_subtitle_for_movie(usermovie, login=None, password=None,
-                                legendastv=None):
+                                remote=False, legendastv=None):
     """ Main function to find, download, extract and match a subtitle for a
         selected file
     """
@@ -105,11 +105,14 @@ def retrieve_subtitle_for_movie(usermovie, login=None, password=None,
         movie['title']   = movie['title'][:data_obj.start()].strip()
 
     # Get more useful info from OpenSubtitles.org
+    # Only for local files, as the hashing used for video ID
+    #  requires a full file copy over remote mounts (FTP/SSH)
     osdb_movies = []
-    try:
-        osdb_movies = opensubtitles.videoinfo(usermovie)
-    except:
-        pass
+    if not remote:
+        try:
+            osdb_movies = opensubtitles.videoinfo(usermovie)
+        except:
+            pass
 
     # Filter results
     osdb_movies = [m for m in osdb_movies
