@@ -487,3 +487,59 @@ class LegendasTV(HttpBot, Provider):
         print_debug("Ranked subtitles for %s:\n%s" % (movie,
                                                       dt.print_dictlist(result)))
         return result
+
+
+    def _matching_points(self, ref, val, p):
+        if not ref:
+            if not val: return p[0]  # no reference and no value
+            else:       return p[1]  # no reference, but at least has value
+        if not val:     return p[2]  # reference available, but no value
+        if val != ref:  return p[3]  # value different than reference
+        else:           return p[4]  # value matches reference
+
+
+    def rankMovies(self, movie, movies):
+        year = movie.get('year', None)
+        title = dt.clean_string(movie['title'])
+        mtype = 'movie'
+        points = dict(
+            year  = (0, 1, -1, -3, 5),
+            type  = (0, 0, -1, -5, 1),
+            title = (8, 0)
+        )
+        max_score = sum((max(w) for w in points.itervalues()))
+        min_score = sum((min(w) for w in points.itervalues()))
+
+        for m in movies:
+            y = m.get('year', None)
+            t = m.get('type', None)
+            s = dt.get_similarity(title, dt.clean_string(m['title']))
+
+            score = 0
+            score += self._matching_points(year,  y, points['year'])
+            score += self._matching_points(mtype, t, points['type'])
+            score += s * points['title'][0]
+
+            m['score'] = 10.0 * (score - min_score) / (max_score - min_score)
+            m['similarity'] = s
+
+        result = sorted(movies,
+                        key=operator.itemgetter('score'),
+                        reverse=True)
+
+        print_debug("Ranked movies for %s:\n%s" %
+                    (movie,
+                     dt.print_dictlist(result)))
+
+        return result
+
+
+    def rankSeries(self, episode, seasons):
+        return seasons
+
+    def rankTitles(self, title, titles):
+        if title.get('type') == 'episode':
+            ranker = self.rankSeries
+        else:
+            ranker = self.rankMovies
+        return ranker(title, titles)
