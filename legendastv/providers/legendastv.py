@@ -387,6 +387,9 @@ class LegendasTV(HttpBot, Provider):
             Return the list sorted by score, greatest first
         """
 
+        if not subtitles:
+            return
+
         def days(d):
             return (datetime.today() - d).days
 
