@@ -281,14 +281,16 @@ def retrieve_subtitle_for_movie(usermovie, login=None, password=None,
             # If Series, match by Episode
             file = None
             if movie['type'] == 'episode':
-                for file in files:
-                    data_obj = re.search(_re_season_episode, file['original'])
+                for item in files:
+                    data_obj = re.search(_re_season_episode, item['original'])
                     if data_obj:
                         data = data_obj.groupdict()
                         if int(data['episode']) == int(movie['episode']):
-                            print_debug("Chosen for episode %s: %s" % (movie['episode'],
-                                                                       file['original']))
-                            break
+                            item['similarity'] = dt.get_similarity(movie['release'], item['compare'])
+                            if not file or item['similarity'] > file['similarity']:
+                                file = item
+                if file:
+                    print_debug("Chosen for episode %s: %s" % (movie['episode'], file['original']))
             if not file:
                 # Use name/release matching
                 # Should we use file or dir as a reference?
