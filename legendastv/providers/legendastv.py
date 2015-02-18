@@ -212,9 +212,9 @@ class LegendasTV(HttpBot, Provider):
         movies = []
 
         searchtext = text
-        searchtext = searchtext.replace("'", "\\'")
-        searchtext = searchtext.split(':', 1)[0]
-        url = "/util/busca_titulo/" + self.quote(searchtext.strip())
+        #searchtext = searchtext.replace("'", "\\'")
+        searchtext = searchtext.replace(":", " ")
+        url = "/legenda/sugestao/" + self.quote(searchtext.strip())
         log.debug("loading %s", url)
         try:
             tree = json.load(self.get(url))
@@ -223,22 +223,84 @@ class LegendasTV(HttpBot, Provider):
             log.error(e)
             tree = []
 
-        # [{u'Filme': {u'id_filme':    u'20389',
-        #              u'dsc_nome':    u'Wu long tian shi zhao ji gui',
-        #              u'dsc_nome_br': u'Kung Fu Zombie',
-        #              u'dsc_imagen':  u'tt199148.jpg'}},]
+        # [{"_index":"filmes","_type":"filme","_id":"772","_score":null,
+        #   "_source":{"id_filme":"772",
+        #              "id_imdb":"119177",
+        #              "tipo":"M",
+        #              "int_genero":"1001",
+        #              "dsc_imagen":"tt119177.jpg",
+        #              "dsc_nome":"Gattaca",
+        #              "dsc_sinopse":"Num futuro...\r\n",
+        #              "dsc_data_lancamento":"1997",
+        #              "dsc_url_imdb":null,
+        #              "dsc_nome_br":"Gattaca",
+        #              "soundex":"KTK",
+        #              "temporada":null,
+        #              "id_usuario":null,
+        #              "flg_liberado":"1",
+        #              "dsc_data_liberacao":null,
+        #              "dsc_data":null,
+        #              "dsc_metaphone_us":"KTK",
+        #              "dsc_metaphone_br":"KTK",
+        #              "episodios":null,
+        #              "flg_seriado":null,
+        #              "last_used":"1373179590",
+        #              "deleted":false},
+        #   "sort":[null]}]
+
+        # [{"_index":"filmes","_type":"filme","_id":"36483","_score":None,
+        #   "_source":{"id_filme":"36483",
+        #              "id_imdb":"2306299",
+        #              "tipo":"S",
+        #              "int_genero":"0",
+        #              "dsc_imagen":"legendas_tv_20150208120453.jpg",
+        #              "dsc_nome":"Vikings",
+        #              "dsc_sinopse":"A s\u00e9rie apresenta a trajet\u00f3ria...",
+        #              "dsc_data_lancamento":"2015",
+        #              "dsc_url_imdb":"http:\/\/www.imdb.com\/title\/tt2306299\/",
+        #              "dsc_nome_br":"Vikings - 3\u00aa Temporada",
+        #              "soundex":None,
+        #              "temporada":"3",
+        #              "id_usuario":"2262943",
+        #              "flg_liberado":"0",
+        #              "dsc_data_liberacao":None,
+        #              "dsc_data":"2015-02-08T12:05:19",
+        #              "dsc_metaphone_us":None,
+        #              "dsc_metaphone_br":None,
+        #              "episodios":None,
+        #              "flg_seriado":None,
+        #              "last_used":"0",
+        #              "deleted":False},
+        #   "sort":["3"]},]
+
+        mapping = dict(
+            id       = "id_filme",
+            title    = "dsc_nome",
+            title_br = "dsc_nome_br",
+            thumb    = "dsc_imagen",
+            year     = "dsc_data_lancamento",
+            type     = "tipo",
+            season   = "temporada",
+            imdb_id  = "id_imdb",
+        )
+
+        typemap = {
+            'M': 'movie',
+            'S': 'episode',
+        }
+
         for e in tree:
-            item = e['Filme']
-            movie = dict(
-                id       = int(item['id_filme']),
-                title    = item['dsc_nome'],
-                title_br = item['dsc_nome_br'],
-                thumb    = item['dsc_imagen'],
-            )
-            if movie['thumb']:
+            item = e['_source']
+            movie = {k: item.get(v, None) for k, v in mapping.iteritems()}
+
+            if movie.get('thumb', None):
                 movie['thumb'] = "http://i.legendas.tv/poster/" + movie['thumb']
                 if g.options['cache']:
                     self.cache(movie['thumb'], 'thumbs')
+
+            if movie.get('type', None):
+                movie['type'] = typemap.get(movie['type'], None)
+
             movies.append(movie)
 
         print_debug("Titles found for '%s':\n%s" % (text,
