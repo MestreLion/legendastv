@@ -32,6 +32,9 @@ from .utils import notify, print_debug
 
 log = logging.getLogger(__name__)
 
+_provider = None
+_re_season_episode = re.compile(r"[S]?(?P<season>\d\d?)[Ex](?P<episode>\d\d?)",
+                                re.IGNORECASE)
 
 def guess_movie_info(text):
 
@@ -61,20 +64,31 @@ def guess_movie_info(text):
     return result
 
 
+def get_provider():
+    """A convenience function to allow re-usage of a provider instance
+        with a single initialization
+    """
+    global _provider
+
+    if _provider is not None:
+        return _provider
+
+    notify("Logging in Legendas.TV", icon=g.globals['appicon'])
+    _provider = ltv.LegendasTV()
+    if not _provider.login(g.options['login'],
+                           g.options['password']):
+        notify("ERROR logging in, check your config file!")
+        raise g.LegendasError
+
+    return _provider
+
+
 def retrieve_subtitle_for_movie(usermovie, login=None, password=None,
-                                remote=False, legendastv=None):
+                                remote=False):
     """ Main function to find, download, extract and match a subtitle for a
         selected file
     """
-
-    # Log in
-    if not legendastv:
-        notify("Logging in Legendas.TV", icon=g.globals['appicon'])
-        legendastv = ltv.LegendasTV()
-        if not legendastv.login(login    or g.options['login'],
-                                password or g.options['password']):
-            notify("ERROR logging in, check your config file!")
-            return
+    legendastv = get_provider()
 
     usermovie = os.path.abspath(usermovie)
     print_debug("Target: %s" % usermovie)
@@ -91,11 +105,13 @@ def retrieve_subtitle_for_movie(usermovie, login=None, password=None,
 
     # Now let's play with that string and try to get some useful info
     movie = guess_movie_info(search)
-    movie.update({'episode': '', 'season': '', 'type': '' })
+    movie.update({'episode': '',
+                  'season': '',
+                  'type': '',
+                  'dirname': dirname,
+                  'filename': filename})
 
     # Try to tell movie from episode
-    _re_season_episode = re.compile(r"[S]?(?P<season>\d\d?)[Ex](?P<episode>\d\d?)",
-                                    re.IGNORECASE)
     data_obj = re.search(_re_season_episode, filename) # always use filename
     if data_obj:
         data = data_obj.groupdict()
@@ -218,113 +234,127 @@ def retrieve_subtitle_for_movie(usermovie, login=None, password=None,
         notify("No titles found. Trying release...")
         subs = legendastv.getSubtitlesByText(movie['release'])
 
-    if len(subs) > 0:
-
-        # Good! Lets choose and download the best subtitle...
-        notify("%s subtitles found", len(subs))
-
-        # For TV Series, consider only packs and matching episodes
-        if movie['type'] == 'episode':
-            episodes = []
-            for sub in subs:
-                data_obj = re.search(_re_season_episode, sub['release'])
-                # Check whether the episode matches. The subtitle should never
-                # be selected if the episode doesn't match, even if it's a pack.
-                if data_obj:
-                    data = data_obj.groupdict()
-                    if int(data['episode']) == int(movie['episode']):
-                        episodes.append(sub)
-                elif sub['pack']:
-                    episodes.append(sub)
-            subs = episodes
-
-        subtitles = legendastv.rankSubtitles(movie, subs)
-        if not subtitles:
-            notify("No subtitles found for episode %d", int(movie['episode']))
-            return
-
-        # UI suggestion: present the user with a single subtitle, and the
-        # following message:
-        # "This is the best subtitle match we've found, how about it?"
-        # And 3 options:
-        # - "Yes, perfect, you nailed it! Download it for me"
-        # - "This is nice, but not there yet. Let's see what else you've found"
-        #   (show a list of the other subtitles found)
-        # - "Eww, not even close! Let's try other search options"
-        #   (show the search options used, let user edit them, and retry)
-
-        notify("Downloading '%s' from '%s'",
-               subtitles[0]['release'],
-               subtitles[0]['user_name'])
-        archive = legendastv.downloadSubtitle(subtitles[0]['hash'],
-                                              os.path.join(g.globals['cache_dir'],
-                                                           'archives'),
-                                              overwrite=False)
-        if not archive:
-            notify("ERROR downloading archive!")
-            return
-
-        files = ft.extract_archive(archive, extlist=["srt"])
-        if not files:
-            notify("ERROR! Archive is corrupt or has no subtitles")
-            return
-
-        if len(files) > 1:
-            # Damn those multi-file archives!
-            notify("%s subtitles in archive", len(files))
-
-            # Build a new list suitable for comparing
-            files = [dict(compare=dt.clean_string(os.path.basename(os.path.splitext(f)[0])),
-                          original=os.path.basename(f),
-                          full=f)
-                     for f in files]
-
-            # If Series, match by Episode
-            file = None
-            if movie['type'] == 'episode':
-                for item in files:
-                    data_obj = re.search(_re_season_episode, item['original'])
-                    if data_obj:
-                        data = data_obj.groupdict()
-                        if int(data['episode']) == int(movie['episode']):
-                            item['similarity'] = dt.get_similarity(movie['release'], item['compare'])
-                            if not file or item['similarity'] > file['similarity']:
-                                file = item
-                if file:
-                    print_debug("Chosen for episode %s: %s" % (movie['episode'], file['original']))
-            if not file:
-                # Use name/release matching
-                # Should we use file or dir as a reference?
-                dirname_compare  = dt.clean_string(dirname)
-                filename_compare = dt.clean_string(filename)
-                if movie['type'] == 'episode' or \
-                   dt.get_similarity(dirname_compare , files[0]['compare']) < \
-                   dt.get_similarity(filename_compare, files[0]['compare']):
-                    result = dt.choose_best_by_key(filename_compare,
-                                                   files, 'compare')
-                else:
-                    result = dt.choose_best_by_key(dirname_compare,
-                                                   files, 'compare')
-                file = result['best']
-
-            file = file['full'] # convert back to string
-        else:
-            file = files[0] # so much easier...
-
-        srtclean.main(['--in-place', '--convert', 'UTF-8', file])
-        srtbackup = "%s.srtclean.bak" % file
-        # If srtclean modified the subtitle, Rename the modified file and revert the backup
-        if os.path.isfile(srtbackup):
-            srtfile = "%s.srtclean.srt" % os.path.splitext(file)[0]
-            os.rename(file, srtfile)
-            os.rename(srtbackup, file)
-            file = srtfile
-        shutil.copyfile(file, os.path.join(savedir, "%s.srt" % filename))
-        notify("DONE!")
-        return True
-
-    else:
+    if not subs:
         # Are you *sure* this movie exists? Try our interactive mode
         # and search for yourself. I swear I tried...
         notify("No subtitles found")
         return False
+
+    # Good! Lets choose and download the best subtitle...
+    notify("%s subtitles found", len(subs))
+
+    try:
+        subtitle = choose_subtitle(movie, subs)
+    except g.LegendasError as e:
+        notify(e)
+        return
+
+    notify("Downloading '%s' from '%s'",
+           subtitle['release'],
+           subtitle['user_name'])
+
+    archive = legendastv.downloadSubtitle(subtitle['hash'],
+                                          os.path.join(g.globals['cache_dir'],
+                                                       'archives'),
+                                          overwrite=False)
+    if not archive:
+        notify("ERROR downloading archive!")
+        return
+
+    try:
+        file = choose_srt(movie, archive)
+    except g.LegendasError as e:
+        notify(e)
+        return
+
+    srtclean.main(['--in-place', '--convert', 'UTF-8', file])
+    srtbackup = "%s.srtclean.bak" % file
+    # If srtclean modified the subtitle, Rename the modified file and revert the backup
+    if os.path.isfile(srtbackup):
+        srtfile = "%s.srtclean.srt" % os.path.splitext(file)[0]
+        os.rename(file, srtfile)
+        os.rename(srtbackup, file)
+        file = srtfile
+    shutil.copyfile(file, os.path.join(savedir, "%s.srt" % filename))
+    notify("DONE!")
+    return True
+
+
+def choose_subtitle(movie, subs):
+    """Choose a subtitle from subs for a movie"""
+
+    legendastv = get_provider()
+
+    # For TV Series, consider only packs and matching episodes
+    if movie['type'] == 'episode':
+        episodes = []
+        for sub in subs:
+            data_obj = re.search(_re_season_episode, sub['release'])
+            # Check whether the episode matches. The subtitle should never
+            # be selected if the episode doesn't match, even if it's a pack.
+            if data_obj:
+                data = data_obj.groupdict()
+                if int(data['episode']) == int(movie['episode']):
+                    episodes.append(sub)
+            elif sub['pack']:
+                episodes.append(sub)
+        subs = episodes
+
+    subtitles = legendastv.rankSubtitles(movie, subs)
+    if not subtitles:
+        raise g.LegendasError("No subtitles found for episode %d" %
+                              int(movie['episode']))
+
+    return subtitles[0]
+
+
+def choose_srt(movie, archive):
+    """Extract an archive and choose an srt file for a movie"""
+
+    files = ft.extract_archive(archive, extlist=["srt"])
+    if not files:
+        raise g.LegendasError("ERROR! Archive is corrupt or has no subtitles")
+
+    if len(files) == 1:
+        return files[0]  # so much easier...
+
+    # Damn those multi-file archives!
+    notify("%s subtitles in archive", len(files))
+
+    # Build a new list suitable for comparing
+    files = [dict(compare=dt.clean_string(os.path.basename(os.path.splitext(f)[0])),
+                  original=os.path.basename(f),
+                  full=f)
+             for f in files]
+
+    # If Series, match by Episode
+    file = None
+    if movie['type'] == 'episode':
+        for item in files:
+            data_obj = re.search(_re_season_episode, item['original'])
+            if data_obj:
+                data = data_obj.groupdict()
+                if int(data['episode']) == int(movie['episode']):
+                    item['similarity'] = dt.get_similarity(movie['release'],
+                                                           item['compare'])
+                    if not file or item['similarity'] > file['similarity']:
+                        file = item
+        if file:
+            print_debug("Chosen for episode %s: %s" % (movie['episode'],
+                                                       file['original']))
+    if not file:
+        # Use name/release matching
+        # Should we use file or dir as a reference?
+        dirname_compare  = dt.clean_string(movie['dirname'])
+        filename_compare = dt.clean_string(movie['filename'])
+        if movie['type'] == 'episode' or \
+           dt.get_similarity(dirname_compare , files[0]['compare']) < \
+           dt.get_similarity(filename_compare, files[0]['compare']):
+            result = dt.choose_best_by_key(filename_compare,
+                                           files, 'compare')
+        else:
+            result = dt.choose_best_by_key(dirname_compare,
+                                           files, 'compare')
+        file = result['best']
+
+    return file['full'] # convert back to string

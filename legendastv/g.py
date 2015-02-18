@@ -72,6 +72,10 @@ options = {
 mapping = {
 }
 
+
+class LegendasError(Exception): pass
+
+
 def read_config():
 
     from . import filetools

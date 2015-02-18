@@ -91,13 +91,6 @@ def setup_logging():
 
 
 def main(args):
-    utils.notify("Logging in Legendas.TV")
-    ltv = legendastv.LegendasTV()
-    if not ltv.login(g.options['login'],
-                     g.options['password']):
-        utils.notify("ERROR logging in, check your config file!")
-        return
-
     for path in args:
         filename = os.path.expanduser(unicode(path, "utf-8"))
 
@@ -106,11 +99,10 @@ def main(args):
                 for video in files:
                     videofile = os.path.join(root, video)
                     if filetools.is_video(videofile):
-                        subtitles.retrieve_subtitle_for_movie(videofile,
-                                                              legendastv=ltv)
+                        subtitles.retrieve_subtitle_for_movie(videofile)
 
         elif os.path.isfile(filename):
-            subtitles.retrieve_subtitle_for_movie(filename, legendastv=ltv)
+            subtitles.retrieve_subtitle_for_movie(filename)
 
         else:
             log.warn("Ignoring path %s", filename)
@@ -135,7 +127,7 @@ if __name__ == "__main__":
             run_demo()
         else:
             main(sys.argv[1:])
-    except KeyboardInterrupt:
+    except KeyboardInterrupt, g.LegendasError:
         pass
     except Exception as e:
         utils.notify("ERROR! Check log for details")
