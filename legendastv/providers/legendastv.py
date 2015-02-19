@@ -422,7 +422,7 @@ class LegendasTV(HttpBot, Provider):
             else:
                 nextpage = tree.xpath("//a[@class='load_more']")
                 if nextpage:
-                    url = next[0].attrib['href']
+                    url = nextpage[0].attrib['href']
                 else:
                     lastpage = True
 
