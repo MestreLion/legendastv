@@ -157,30 +157,37 @@ class OpenSubtitles(Osdb, Provider):
 def videohash(filename):
 
     block = 65536
-    format = b"<%dQ" % (block//8) # unsigned long long little endian
-    hash = os.path.getsize(filename) # initial value for hash is file size
+    fmt = b"<%dQ" % (block//8) # unsigned long long little endian
+    vhash = os.path.getsize(filename) # initial value for hash is file size
 
     def partialhash(f):
-        return sum(struct.unpack(format, f.read(block)))
+        return sum(struct.unpack(fmt, f.read(block)))
 
     with open(filename, "rb") as f:
         try:
-            hash += partialhash(f)
+            vhash += partialhash(f)
             f.seek(-block, os.SEEK_END)
-            hash += partialhash(f)
-            hash &= 0xFFFFFFFFFFFFFFFF # to remain as 64bit number
+            vhash += partialhash(f)
+            vhash &= 0xFFFFFFFFFFFFFFFF # to remain as 64bit number
         except (IOError, struct.error):
             raise OpenSubtitlesError("File '%s' must be at least %d bytes" %
                                      (filename, block))
-    return b"%016x" % hash
+    return b"%016x" % vhash
 
 
 def videoinfo(filename, osdb=None):
+    result = []
     if osdb is None:
         osdb = Osdb()
-    hash = videohash(filename)
-    result = osdb.CheckMovieHash2([hash])
-    return result[hash] if result else []
+    try:
+        vhash = videohash(filename)
+        result = osdb.CheckMovieHash2([vhash])
+        if result:
+            result = result[vhash]
+    except OpenSubtitlesError as e:
+        log.error(e)
+
+    return result
 
 
 
