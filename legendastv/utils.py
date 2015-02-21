@@ -60,7 +60,7 @@ def notify(body, *args, **kwargs):
     app_icon    = g.globals['notify_icon']
 
     g.globals['notifier'].Notify(app_name, replaces_id, app_icon, summary,
-                                 body % args, actions, hints, timeout)
+                                 str(body) % args, actions, hints, timeout)
     log.notify(logbody, *args)
 
 

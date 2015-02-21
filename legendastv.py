@@ -126,8 +126,10 @@ if __name__ == "__main__":
             run_demo()
         else:
             main(sys.argv[1:])
-    except KeyboardInterrupt, g.LegendasError:
+    except KeyboardInterrupt:
         pass
+    except g.LegendasError as e:
+        utils.notify(e)
     except Exception as e:
         utils.notify("ERROR! Check log for details")
         log.critical(e, exc_info=1)
