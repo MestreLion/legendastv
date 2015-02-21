@@ -75,10 +75,11 @@ def get_provider():
 
     notify("Logging in Legendas.TV", icon=g.globals['appicon'])
     _provider = ltv.LegendasTV()
-    if not _provider.login(g.options['login'],
-                           g.options['password']):
-        notify("ERROR logging in, check your config file!")
-        raise g.LegendasError
+    _provider.login(g.options['login'],
+                    g.options['password'])
+
+    if not _provider.auth:
+        raise g.LegendasError("Login failed, check your config file!")
 
     return _provider
 

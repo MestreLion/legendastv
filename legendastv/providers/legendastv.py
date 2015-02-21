@@ -131,8 +131,19 @@ class LegendasTV(HttpBot, Provider):
         url = "/login"
         log.info("Logging in %s as %s", self.base_url + url, login)
 
-        response = self.get(url, {'data[User][username]': login,
-                                  'data[User][password]': password})
+        try:
+            response = self.get(url, {'data[User][username]': login,
+                                      'data[User][password]': password})
+        except (urllib2.HTTPError, urllib2.URLError) as e:
+            if (getattr(e, 'code', 0) in (513,  # Service Unavailable
+                                          )
+                or any(str(errno) in e.reason
+                       for errno in (111,       # Connection refused
+                                     ))) or True:
+                log.error(e)
+                raise g.LegendasError("Legendas.TV website is down!")
+            else:
+                raise
 
         # Check login: url redirect and logout link available
         self.auth = (not response.geturl().endswith(url)
