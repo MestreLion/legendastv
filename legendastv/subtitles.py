@@ -122,41 +122,8 @@ def retrieve_subtitle_for_movie(usermovie, login=None, password=None,
     # Get more useful info from OpenSubtitles.org
     # Only for local files, as the hashing used for video ID
     #  requires a full file copy over remote mounts (FTP/SSH)
-    osdb_movies = []
     if not remote:
-        osdb_movies = opensubtitles.videoinfo(usermovie)
-
-        # Filter results
-        osdb_movies = [m for m in osdb_movies
-                       if m['MovieKind'] != 'tv series' and
-                       (not movie['type'] or m['MovieKind']==movie['type'])]
-
-    print_debug("%d OpenSubtitles titles found:\n%s" %
-                (len(osdb_movies), dt.print_dictlist(osdb_movies)))
-
-    if len(osdb_movies) > 0:
-        if movie['year']:
-            search = "%s %s" % (movie['title'], movie['year'])
-        else:
-            search = movie['title']
-
-        for m in osdb_movies:
-            m['search'] = m['MovieName']
-            if movie['year']:
-                m['search'] += " %s" % m['MovieYear']
-
-        osdb_movie = dt.choose_best_by_key(search, osdb_movies, 'search')['best']
-
-        # For episodes, extract only the series name
-        if (osdb_movie['MovieKind'] == 'episode' and
-            osdb_movie['MovieName'].startswith('"')):
-            osdb_movie['MovieName'] = osdb_movie['MovieName'].split('"')[1]
-
-        movie['title']   = osdb_movie['MovieName']
-        movie['year']    = osdb_movie['MovieYear']
-        movie['type']    = movie['type']    or osdb_movie['MovieKind']
-        movie['season']  = movie['season']  or osdb_movie['SeriesSeason']
-        movie['episode'] = movie['episode'] or osdb_movie['SeriesEpisode']
+        movie = update_movie_with_osdb(usermovie, movie)
 
     def season_to_ord(season):
         season = int(season)
@@ -278,6 +245,56 @@ def retrieve_subtitle_for_movie(usermovie, login=None, password=None,
     shutil.copyfile(srtfile, os.path.join(savedir, "%s.srt" % filename))
     notify("DONE!")
     return True
+
+
+def update_movie_with_osdb(path, movie):
+    osdb_movie = find_osdb_movie(path, movie)
+
+    if not osdb_movie:
+        return movie
+
+    # For episodes, extract only the series name
+    if (osdb_movie['MovieKind'] == 'episode' and
+        osdb_movie['MovieName'].startswith('"')):
+        osdb_movie['MovieName'] = osdb_movie['MovieName'].split('"')[1]
+
+    movie['title']   = osdb_movie['MovieName']
+    movie['year']    = osdb_movie['MovieYear']
+    movie['type']    = movie['type']    or osdb_movie['MovieKind']
+    movie['season']  = movie['season']  or osdb_movie['SeriesSeason']
+    movie['episode'] = movie['episode'] or osdb_movie['SeriesEpisode']
+
+    return movie
+
+
+def find_osdb_movie(path, movie):
+    # Search OSDB by hash and get filtered list of results
+    osdb_movies = [m for m in opensubtitles.videoinfo(path)
+                   if m['MovieKind'] != 'tv series' and
+                   (not movie['type'] or m['MovieKind']==movie['type'])]
+
+    print_debug("%d OpenSubtitles titles found:\n%s" %
+                (len(osdb_movies), dt.print_dictlist(osdb_movies)))
+
+    if not osdb_movies:
+        return
+
+    # Thats the one!
+    if len(osdb_movies) == 1:
+        return osdb_movies[0]
+
+    # Craft the reference search, using title and year, if available
+    search = movie['title']
+    if movie['year']:
+        search += " %s" % movie['year']
+
+    # Prepare candidates
+    for m in osdb_movies:
+        m['search'] = m['MovieName']
+        if movie['year']:
+            m['search'] += " %s" % m['MovieYear']
+
+    return dt.choose_best_by_key(search, osdb_movies, 'search')['best']
 
 
 def choose_subtitle(movie, subs):
