@@ -89,20 +89,20 @@ class MyWindow(Gtk.Window):
         hbox2.add(button)
 
 
-    def on_close(self, widget=None, event=None):
+    def on_close(self):
         Gtk.main_quit()
 
 
-    def on_close_clicked(self, widget):
+    def on_close_clicked(self):
         self.on_close()
 
 
-    def on_lang_changed(self, widget=None):
+    def on_lang_changed(self, widget):
         tree_iter = widget.get_active_iter()
-        if tree_iter != None:
+        if tree_iter is not None:
             model = widget.get_model()
-            id, name = model[tree_iter]
-            print "Selected: language=%s (%s)" % (id, name)
+            langid, name = model[tree_iter]
+            print "Selected: language=%s (%s)" % (langid, name)
 
 
 def main():
