@@ -89,8 +89,6 @@ def retrieve_subtitle_for_movie(usermovie, login=None, password=None,
     """ Main function to find, download, extract and match a subtitle for a
         selected file
     """
-    legendastv = get_provider()
-
     usermovie = os.path.abspath(usermovie)
     print_debug("Target: %s" % usermovie)
     savedir = os.path.dirname(usermovie)
@@ -168,11 +166,14 @@ def retrieve_subtitle_for_movie(usermovie, login=None, password=None,
         else            : tag = "th"
         return "%d%s" % (season, tag)
 
+    legendastv = get_provider()
+
     # Let's begin with a movie search
     if movie['type'] == 'episode':
         movie['release'] = dt.clean_string(filename)
-        notify("Searching titles for '%s %s Season'" % (movie['title'],
-                                                        season_to_ord(movie['season'])),
+        notify("Searching titles for '%s %s Season'",
+               movie['title'],
+               season_to_ord(movie['season']),
                icon=g.globals['appicon'])
     else:
         notify("Searching titles for '%s'", movie['title'],
