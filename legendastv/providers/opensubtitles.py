@@ -65,8 +65,11 @@ class Osdb(object):
         return self._osdb_call("GetSubLanguages", language)
 
 
-    def __enter__(self): return self
-    def __exit__(self, *args): self.LogOut()
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        self.LogOut()
 
 
     def _osdb_call(self, name, *args):
@@ -80,9 +83,9 @@ class Osdb(object):
                   name, args[:1] + ('***',) + args[2:] if name == "LogIn" else args, res)
 
         # Check for result error status
-        if res.has_key('status') and not res['status'].startswith("200"):
+        if not res.get('status', "").startswith("200"):
             raise OpenSubtitlesError("OpenSubtitles API Error in '%s': %s" %
-                                     (name, res['status']))
+                                     (name, res.get('status', "")))
 
         # Remove redundant or irrelevant data fields
         for k in ['status', 'seconds']:
@@ -183,8 +186,13 @@ def videoinfo(filename, osdb=None):
         vhash = videohash(filename)
         result = osdb.CheckMovieHash2([vhash])
         if result:
-            result = result[vhash]
-    except OpenSubtitlesError as e:
+            try:
+                result = result[vhash]
+            except TypeError:
+                # OSDB returned a list instead of a dictionary, Lord knows why
+                log.warn("OSDB returned a list for hash '%s'", hash)
+                result = result[0]
+    except (xmlrpclib.ProtocolError, OpenSubtitlesError) as e:
         log.error(e)
 
     return result
