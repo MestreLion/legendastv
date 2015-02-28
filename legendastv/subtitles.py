@@ -174,7 +174,7 @@ def retrieve_subtitle_for_movie(usermovie, login=None, password=None,
         result = dt.choose_best_by_key(title_to_search + season, movies, 'search')
 
         # But... Is it really similar?
-        if len(movies) == 1 or result['similarity'] > g.options['similarity']:
+        if len(movies) == 1 or result['similarity'] >= g.options['similarity']:
             movie.update(result['best'])
 
             if movie['type'] == 'episode':
