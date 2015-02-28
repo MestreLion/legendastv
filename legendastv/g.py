@@ -21,11 +21,14 @@
 from __future__ import unicode_literals, absolute_import
 
 import os
+import sys
 import ConfigParser
 import logging
 import xdg.BaseDirectory as xdg
 
 log = logging.getLogger(__name__)
+
+filesystem_encoding = sys.getfilesystemencoding()
 
 globals = {
 

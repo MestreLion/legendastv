@@ -24,6 +24,7 @@ import rarfile
 import logging
 
 from . import datatools as dt
+from . import g
 
 log = logging.getLogger(__name__)
 if __name__ == '__main__':
@@ -247,6 +248,9 @@ def extract_archive(archive, path=None, extlist=[], keep=True, overwrite=False):
         safemakedirs(path)
         af.extractall(path)
 
+    # eliminates invalid  characters for the current filesystem encoding
+    safepath(path)
+
     if isinstance(extlist, basestring):
         extlist = extlist.split(",")
 
@@ -315,3 +319,53 @@ def safemakedirs(path):
     except OSError as e:
         if e.errno != 17:  # File exists
             raise
+
+def safepath(path):
+    """ Iterates through all the files and sub directories in order to detect invalid
+        characters. When a file name or directory name contains an invalid character
+        it's renamed to be compliant with the filesystem encoding.
+    """
+    encoded_path = path.encode(g.filesystem_encoding)
+    for dirname, dirnames, filenames in os.walk(encoded_path):
+        for subdirname in dirnames:
+            safepathname(dirname, subdirname)
+        for filename in filenames:
+            safepathname(dirname, filename)
+
+def safepathname(path, name):
+    """ Encoding detection: UTF-8, CP850 and ISO-8859-15
+        If the existing name is encoded in any of the specified encodings, 
+        the file/folder is renamed to be compliant with the filesystem encoding
+    """
+    path_encoding = None
+    for i in range(len(name)):
+        current_char = name[i]
+        if len(name) != 1 and i < (len(name) - 1):
+            next_char = name[i + 1]
+            # Detects UTF-8: we need to always check 2 chars to detect UTF-8 special characters
+            # 1st char: 0xC2-0xC3
+            # 2nd char: 0x80-0xFF
+            if ((current_char == '\xC2' or current_char == '\xC3') and 
+                (next_char >= '\x80' or next_char <= '\xFF')):
+                path_encoding = 'UTF-8'
+                break;
+
+        # Detects CP850: 0x80-0xA5
+        if current_char >= '\x80' and current_char <= '\xA5':
+            path_encoding = 'CP850'
+            break;
+        # Detects ISO-8859-15: 0xA6-0xFF
+        elif current_char >= '\xA6' and current_char <= '\xFF':
+            path_encoding = 'ISO-8859-15'
+            break;
+    
+    if (path_encoding and g.filesystem_encoding != path_encoding):
+        rename_invalid_paths(path, name, path_encoding)
+
+def rename_invalid_paths(path, name, name_encoding):
+    """ Re-encode the file/folder name to the filesystem encoding
+    """
+    safe_name = name.decode(name_encoding)
+    safe_name = safe_name.encode(g.filesystem_encoding)
+    safe_full_name = os.path.join(path, safe_name)
+    os.rename(os.path.join(path, name), safe_full_name)
