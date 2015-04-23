@@ -1,4 +1,12 @@
 #!/bin/bash
+#
+# Nautilus script for Legendas.TV
+#
+# Copy or symlink to '~/.gnome2/nautilus-scripts', or to your system equivalent
+#
+# Copyright (C) 2011 Rodrigo Silva (MestreLion) <linux@rodrigosilva.com>
+# License: GPLv3 or later, at your choice. See <http://www.gnu.org/licenses/gpl>
+
 path=${1:-$PWD}
 shift
 legendastv "$path" "$@"
