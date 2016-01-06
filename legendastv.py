@@ -91,7 +91,7 @@ def setup_logging():
 
 def main(args):
     for path in args:
-        filename = os.path.expanduser(unicode(path, "utf-8"))
+        filename = os.path.expanduser(path)
 
         if os.path.isdir(filename):
             for root, _, files in os.walk(filename):
@@ -104,7 +104,8 @@ def main(args):
             subtitles.retrieve_subtitle_for_movie(filename)
 
         else:
-            log.warn("Ignoring path %s", filename)
+            log.warn("Path is not a valid directory or file, ignoring: %s",
+                     filename)
 
 
 if __name__ == "__main__":

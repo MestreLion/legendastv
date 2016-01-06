@@ -84,11 +84,16 @@ def get_provider():
     return _provider
 
 
-def retrieve_subtitle_for_movie(usermovie, login=None, password=None,
-                                remote=False):
+def retrieve_subtitle_for_movie(usermovie, remote=False):
     """ Main function to find, download, extract and match a subtitle for a
         selected file
     """
+    try:
+        usermovie = unicode(usermovie, 'UTF-8')
+    except UnicodeDecodeError as e:
+        notify("Non UTF-8 chars in filename, ignoring: %r", usermovie)
+        return
+
     usermovie = os.path.abspath(usermovie)
     print_debug("Target: %s" % usermovie)
     savedir = os.path.dirname(usermovie)
