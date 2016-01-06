@@ -116,7 +116,7 @@ def retrieve_subtitle_for_movie(usermovie, remote=False):
                   'filename': filename})
 
     # Try to tell movie from episode
-    data_obj = re.search(_re_season_episode, filename) # always use filename
+    data_obj = re.search(_re_season_episode, filename)  # always use filename
     if data_obj:
         data = data_obj.groupdict()
         movie['type']    = 'episode'
@@ -137,6 +137,8 @@ def retrieve_subtitle_for_movie(usermovie, remote=False):
         elif season == 3: tag = "rd"
         else            : tag = "th"
         return "%d%s" % (season, tag)
+
+    log.debug("Target data: %s", movie)
 
     legendastv = get_provider()
 
@@ -181,6 +183,7 @@ def retrieve_subtitle_for_movie(usermovie, remote=False):
         # But... Is it really similar?
         if len(movies) == 1 or result['similarity'] >= g.options['similarity']:
             movie.update(result['best'])
+            log.debug("Target updated data: %s", movie)
 
             if movie['type'] == 'episode':
                 notify("Searching subs for '%s' - Episode %d",
