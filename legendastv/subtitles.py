@@ -188,9 +188,12 @@ def retrieve_subtitle_for_movie(usermovie, remote=False):
             if movie['type'] == 'episode':
                 notify("Searching subs for '%s' - Episode %d",
                        result['best']['title_br'],
-                       int(movie['episode']),
+                       int(movie['episode'] or '0'),
                        icon=os.path.join(g.globals['cache_dir'], 'thumbs',
                                          os.path.basename(result['best']['thumb'] or "")))
+                if not movie['episode']:
+                    notify("No episode data to search!")
+                    return
             else:
                 notify("Searching subs for '%s'", result['best']['title'],
                        icon=os.path.join(g.globals['cache_dir'], 'thumbs',
