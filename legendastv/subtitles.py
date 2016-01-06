@@ -91,7 +91,7 @@ def retrieve_subtitle_for_movie(usermovie, remote=False):
     try:
         usermovie = unicode(usermovie, 'UTF-8')
     except UnicodeDecodeError as e:
-        notify("Non UTF-8 chars in filename, ignoring: %r", usermovie)
+        notify("Non UTF-8 chars in filename, ignoring: %r", usermovie, error=True)
         return
 
     usermovie = os.path.abspath(usermovie)
@@ -192,7 +192,7 @@ def retrieve_subtitle_for_movie(usermovie, remote=False):
                        icon=os.path.join(g.globals['cache_dir'], 'thumbs',
                                          os.path.basename(result['best']['thumb'] or "")))
                 if not movie['episode']:
-                    notify("No episode data to search!")
+                    notify("No episode data to search!", error=True)
                     return
             else:
                 notify("Searching subs for '%s'", result['best']['title'],
@@ -214,8 +214,8 @@ def retrieve_subtitle_for_movie(usermovie, remote=False):
     if not subs:
         # Are you *sure* this movie exists? Try our interactive mode
         # and search for yourself. I swear I tried...
-        notify("No subtitles found")
-        return False
+        notify("No subtitles found", error=True)
+        return
 
     # Good! Lets choose and download the best subtitle...
     notify("%s subtitles found", len(subs))
@@ -223,7 +223,7 @@ def retrieve_subtitle_for_movie(usermovie, remote=False):
     try:
         subtitle = choose_subtitle(movie, subs)
     except g.LegendasError as e:
-        notify(e)
+        notify(e, error=True)
         return
 
     notify("Downloading '%s' from '%s'",
@@ -235,13 +235,13 @@ def retrieve_subtitle_for_movie(usermovie, remote=False):
                                                        'archives'),
                                           overwrite=False)
     if not archive:
-        notify("ERROR downloading archive!")
+        notify("ERROR downloading archive!", error=True)
         return
 
     try:
         srtfile = choose_srt(movie, archive)
     except g.LegendasError as e:
-        notify(e)
+        notify(e, error=True)
         return
 
     srtclean.main(['--in-place', '--convert', 'UTF-8', srtfile])

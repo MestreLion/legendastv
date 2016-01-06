@@ -31,14 +31,16 @@ log = logging.getLogger(__name__)
 def notify(body, *args, **kwargs):
     summary = kwargs.pop('summary', '')
     icon    = kwargs.pop('icon',    '')
+    error   = kwargs.pop('error', False)
     if kwargs:
         raise TypeError("invalid arguments for notify(): %s" % kwargs)
 
     logbody = body if not summary else " - ".join((summary, body))
+    logger = log.error if error else log.notify
 
     # Fallback for no notifications
     if not g.options['notifications']:
-        log.notify(logbody, *args)
+        logger(logbody, *args)
         return
 
     # Use the same interface object in all calls
@@ -61,7 +63,7 @@ def notify(body, *args, **kwargs):
 
     g.globals['notifier'].Notify(app_name, replaces_id, app_icon, summary,
                                  str(body) % args, actions, hints, timeout)
-    log.notify(logbody, *args)
+    logger(logbody, *args)
 
 
 def print_debug(text):

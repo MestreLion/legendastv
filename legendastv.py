@@ -130,7 +130,7 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         pass
     except g.LegendasError as e:
-        utils.notify(e)
+        utils.notify(e, error=True)
     except Exception as e:
-        utils.notify("ERROR! Check log for details")
+        utils.notify("ERROR! Check log for details", error=True)
         log.critical(e, exc_info=1)
