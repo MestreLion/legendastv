@@ -1,6 +1,10 @@
 #!/bin/bash
 
+# Nautilus 3.5.1 onwards: ${XDG_DATA_HOME:-"$HOME"/.local/share}/nautilus/scripts
+# https://bugzilla.gnome.org/show_bug.cgi?id=646584
+# https://github.com/GNOME/nautilus/commit/05e7b7cc4d70b0c89442241e1a741d63a6c5d24d
 nautilus_scripts=$(readlink -f "$HOME/.gnome2/nautilus-scripts")
+
 link_nautilus="$nautilus_scripts"/Legendas.TV
 link_exec="$HOME"/.local/bin/legendastv
 
