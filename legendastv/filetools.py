@@ -20,8 +20,8 @@
 
 import os
 import zipfile
-import rarfile
 import logging
+from unrar import rarfile
 
 from . import datatools as dt
 from . import g
@@ -269,7 +269,8 @@ def extract_archive(archive, path=None, extlist=[], keep=True, overwrite=False):
                                                    keep=True,
                                                    overwrite=False))
 
-    af.close()
+    if not type(af) is rarfile.RarFile:
+        af.close()
 
     if not keep:
         try:
@@ -334,7 +335,7 @@ def safepath(path):
 
 def safepathname(path, name):
     """ Encoding detection: UTF-8, CP850 and ISO-8859-15
-        If the existing name is encoded in any of the specified encodings, 
+        If the existing name is encoded in any of the specified encodings,
         the file/folder is renamed to be compliant with the filesystem encoding
     """
     path_encoding = None
@@ -345,7 +346,7 @@ def safepathname(path, name):
             # Detects UTF-8: we need to always check 2 chars to detect UTF-8 special characters
             # 1st char: 0xC2-0xC3
             # 2nd char: 0x80-0xFF
-            if ((current_char == '\xC2' or current_char == '\xC3') and 
+            if ((current_char == '\xC2' or current_char == '\xC3') and
                 (next_char >= '\x80' or next_char <= '\xFF')):
                 path_encoding = 'UTF-8'
                 break;
@@ -358,7 +359,7 @@ def safepathname(path, name):
         elif current_char >= '\xA6' and current_char <= '\xFF':
             path_encoding = 'ISO-8859-15'
             break;
-    
+
     if (path_encoding and g.filesystem_encoding != path_encoding):
         rename_invalid_paths(path, name, path_encoding)
 
