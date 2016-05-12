@@ -21,6 +21,7 @@
 from __future__ import unicode_literals
 
 import xmlrpclib
+import socket
 import struct
 import os
 import json
@@ -40,16 +41,22 @@ class OpenSubtitlesError(Exception):
 class Osdb(object):
     def __init__(self, username="", password="", language=""):
         self.osdb = xmlrpclib.ServerProxy('http://api.opensubtitles.org/xml-rpc')
+        self.username = None
+        self.language = None
+        self.token = None
         try:
             self.LogIn(username, password, language)
-        except xmlrpclib.ProtocolError as e:
+        except (xmlrpclib.Error, OpenSubtitlesError) as e:
             log.warn("Could not login to OSDB, some services may not work: %s", e)
 
 
     def LogIn(self, username="", password="", language=""):
         self.username = username
         self.language = language
-        self.token = self._osdb_call("LogIn", self.username, password, self.language,
+        self.token = self._osdb_call("LogIn",
+                                     self.username,
+                                     password,
+                                     self.language,
                                      "Legendas.TV v%s" % g.globals['version'])
 
 
@@ -68,19 +75,33 @@ class Osdb(object):
     def __enter__(self):
         return self
 
-    def __exit__(self, *args):
+    def __exit__(self, *args):  #@UnusedVariable
         self.LogOut()
 
 
     def _osdb_call(self, name, *args):
         # Insert token as first argument for methods that require it
         if name not in ['ServerInfo', 'LogIn', 'GetSubLanguages']:
+            if not self.token:
+                raise OpenSubtitlesError("OSDB.%s requires logging in" % name)
             args = (self.token,) + args
 
         # Do the XML-RPC call
-        res = getattr(self.osdb, name)(*args)
+        try:
+            timeout = socket.getdefaulttimeout()
+            socket.setdefaulttimeout(5)
+            raise socket.error(110, 'Connection timed out')
+            res = getattr(self.osdb, name)(*args)
+        except socket.error as e:
+            # most likely [Errno 110] Connection timed out
+            raise OpenSubtitlesError(e)
+        finally:
+            socket.setdefaulttimeout(timeout)
+
         log.debug("OSDB.%s%r -> %r",
-                  name, args[:1] + ('***',) + args[2:] if name == "LogIn" else args, res)
+                  name,
+                  args[:1] + ('***',) + args[2:] if name == "LogIn" else args,
+                  res)
 
         # Check for result error status
         if not res.get('status', "").startswith("200"):
@@ -117,7 +138,8 @@ class OpenSubtitles(Osdb, Provider):
         # reading from cache
         cache = {}
         cachefile = os.path.join(g.globals['cache_dir'],
-                                 "languages_%s.json" % __name__.rpartition(".")[2])
+                                 "languages_%s.json" %
+                                    __name__.rpartition(".")[2])
         try:
             # cache must exist and be fresh (30 days)
             if os.path.getmtime(cachefile) > time.time() - 60*60*24*30:
@@ -192,7 +214,7 @@ def videoinfo(filename, osdb=None):
                 # OSDB returned a list instead of a dictionary, Lord knows why
                 log.warn("OSDB returned a list for hash '%s'", hash)
                 result = result[0]
-    except (xmlrpclib.ProtocolError, OpenSubtitlesError) as e:
+    except OpenSubtitlesError as e:
         log.error(e)
 
     return result
