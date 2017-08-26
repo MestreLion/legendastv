@@ -170,7 +170,7 @@ class LegendasTV(HttpBot, Provider):
         pl = dict(id=17, code="poland",  name="Polonês"),
     )
 
-    def getLanguages(self, language=None):
+    def getLanguages(self, language=None):  # @UnusedVariable
         # reading from cache
         cachefile = os.path.join(g.globals['cache_dir'],
                                  "languages_%s.json" % __name__.rpartition(".")[2])
@@ -549,7 +549,7 @@ class LegendasTV(HttpBot, Provider):
         return result
 
 
-    def rankSeries(self, episode, seasons):
+    def rankSeries(self, episode, seasons):  # @UnusedVariable
         return seasons
 
     def rankTitles(self, title, titles):
