@@ -204,9 +204,9 @@ def clean(subs, blacklistfile, rebuild_index=True):
                 break
 
     if deleted:
-        log.info("%d items deleted", len(deleted))
         for item in reversed(deleted):
-            log.debug(unicode(item).replace('\n', '\t').strip())
+            log.info(unicode(item).replace('\n', '\t').strip())
+        log.info("%d items deleted", len(deleted))
         if rebuild_index:
             subs.clean_indexes()
 
