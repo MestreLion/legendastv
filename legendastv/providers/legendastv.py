@@ -308,7 +308,12 @@ class LegendasTV(HttpBot, Provider):
             if movie.get('thumb', None):
                 movie['thumb'] = self.url_thumbs + movie['thumb']
                 if g.options['cache']:
-                    self.cache(movie['thumb'], 'thumbs')
+                    try:
+                        self.cache(movie['thumb'], 'thumbs')
+                    except (urllib2.HTTPError, urllib2.URLError) as e:
+                        log.error("%s\t%s", movie['thumb'], e)
+                        if getattr(e, 'code', 0) not in (404,):  # Page not Found
+                            raise(e)
 
             if movie.get('type', None):
                 movie['type'] = typemap.get(movie['type'], None)
