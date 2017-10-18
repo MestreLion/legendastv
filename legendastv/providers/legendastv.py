@@ -117,6 +117,7 @@ class LegendasTV(HttpBot, Provider):
 
     name = "Legendas.TV"
     url = "http://legendas.tv"
+    url_thumbs = "http://i.legendas.tv/poster/214x317/"
 
     _re_sub_language = re.compile(r"idioma/\w+_(\w+)\.")
 
@@ -305,7 +306,7 @@ class LegendasTV(HttpBot, Provider):
             movie = {k: item.get(v, None) for k, v in mapping.iteritems()}
 
             if movie.get('thumb', None):
-                movie['thumb'] = "http://i.legendas.tv/poster/" + movie['thumb']
+                movie['thumb'] = self.url_thumbs + movie['thumb']
                 if g.options['cache']:
                     self.cache(movie['thumb'], 'thumbs')
 
