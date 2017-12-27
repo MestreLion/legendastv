@@ -22,6 +22,7 @@ from __future__ import unicode_literals
 
 import xmlrpclib
 import socket
+import httplib
 import struct
 import os
 import json
@@ -91,7 +92,7 @@ class Osdb(object):
             timeout = socket.getdefaulttimeout()
             socket.setdefaulttimeout(5)
             res = getattr(self.osdb, name)(*args)
-        except socket.error as e:
+        except (socket.error, httplib.ResponseNotReady) as e:
             # most likely [Errno 110] Connection timed out
             raise OpenSubtitlesError(e)
         finally:
