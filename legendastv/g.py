@@ -70,6 +70,8 @@ options = {
     'similarity'    : 0.7,
     'notifications' : True,
     'language'      : "pb",
+    'osdb_username' : "",
+    'osdb_password' : "",
 }
 
 mapping = {

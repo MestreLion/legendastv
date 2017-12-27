@@ -280,7 +280,9 @@ def update_movie_with_osdb(path, movie):
 
 def find_osdb_movie(path, movie):
     # Search OSDB by hash and get filtered list of results
-    osdb_movies = [m for m in opensubtitles.videoinfo(path)
+    osdb = opensubtitles.Osdb(g.options['osdb_username'],
+                              g.options['osdb_password'])
+    osdb_movies = [m for m in opensubtitles.videoinfo(path, osdb)
                    if m['MovieKind'] != 'tv series' and
                    (not movie['type'] or m['MovieKind']==movie['type'])]
 
