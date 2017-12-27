@@ -336,7 +336,10 @@ def choose_subtitle(movie, subs):
             # be selected if the episode doesn't match, even if it's a pack.
             if data_obj:
                 data = data_obj.groupdict()
-                if int(data['episode']) == int(movie['episode']):
+                if (
+                    int(data['episode']) == int(movie['episode']) and
+                    int(data['season'])  == int(movie['season'])
+                ):
                     episodes.append(sub)
             elif sub['pack']:
                 episodes.append(sub)
