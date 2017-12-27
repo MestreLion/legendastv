@@ -115,10 +115,10 @@ class Osdb(object):
         for k in ('status', 'seconds'):
             res.pop(k, None)
 
-        # if remaining response has a single field (most likely 'data'),
+        # if remaining response has a single field named 'data',
         # return that field's value directly ("un-dict" the response)
-        if len(res) == 1:
-            return res.popitem()[1]
+        if len(res) == 1 and 'data' in res:
+            return res['data']
         else:
             return res
 
