@@ -81,8 +81,11 @@ class Osdb(object):
 
 
     def _osdb_call(self, name, *args):
+        nostatus = ('ServerInfo', 'GetSubLanguages')
+        notoken  = nostatus + ('LogIn',)
+
         # Insert token as first argument for methods that require it
-        if name not in ['ServerInfo', 'LogIn', 'GetSubLanguages']:
+        if name not in notoken:
             if not self.token:
                 raise OpenSubtitlesError("OSDB.%s requires logging in" % name)
             args = (self.token,) + args
@@ -104,12 +107,12 @@ class Osdb(object):
                   res)
 
         # Check for result error status
-        if not res.get('status', "").startswith("200"):
+        if name not in nostatus and not res.get('status', "").startswith("200"):
             raise OpenSubtitlesError("OpenSubtitles API Error in '%s': %s" %
                                      (name, res.get('status', "")))
 
         # Remove redundant or irrelevant data fields
-        for k in ['status', 'seconds']:
+        for k in ('status', 'seconds'):
             res.pop(k, None)
 
         # if remaining response has a single field (most likely 'data'),
