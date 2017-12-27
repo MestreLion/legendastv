@@ -90,7 +90,6 @@ class Osdb(object):
         try:
             timeout = socket.getdefaulttimeout()
             socket.setdefaulttimeout(5)
-            raise socket.error(110, 'Connection timed out')
             res = getattr(self.osdb, name)(*args)
         except socket.error as e:
             # most likely [Errno 110] Connection timed out
