@@ -44,7 +44,8 @@ class Osdb(object):
         self.osdb = xmlrpclib.ServerProxy('http://api.opensubtitles.org/xml-rpc')
         self.username = None
         self.language = None
-        self.token = None
+        self.account  = None
+        self.token    = None
         try:
             self.LogIn(username, password, language)
         except (xmlrpclib.Error, OpenSubtitlesError) as e:
@@ -54,11 +55,15 @@ class Osdb(object):
     def LogIn(self, username="", password="", language=""):
         self.username = username
         self.language = language
-        self.token = self._osdb_call("LogIn",
-                                     self.username,
-                                     password,
-                                     self.language,
-                                     "Legendas.TV v%s" % g.globals['version'])
+        res = self._osdb_call(
+            "LogIn",
+            self.username,
+            password,
+            self.language,
+            "Legendas.TV v%s" % g.globals['version']
+        )
+        self.token = res['token']
+        self.account = res.get('data', None)
 
 
     def LogOut(self):
