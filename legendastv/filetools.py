@@ -21,7 +21,13 @@
 import os
 import zipfile
 import logging
-from unrar import rarfile
+
+try:
+    import rarfile
+    _closerar = True
+except ImportError:
+    from unrar import rarfile
+    _closerar = False
 
 from . import datatools as dt
 from . import g
@@ -269,7 +275,7 @@ def extract_archive(archive, path=None, extlist=[], keep=True, overwrite=False):
                                                    keep=True,
                                                    overwrite=False))
 
-    if not type(af) is rarfile.RarFile:
+    if _closerar:
         af.close()
 
     if not keep:
