@@ -218,26 +218,3 @@ def videoinfo(filename, osdb=None):
         log.error(e)
 
     return result
-
-
-
-
-if __name__ == "__main__":
-    import sys
-    logging.basicConfig(level=logging.DEBUG)
-
-    try:
-        osdb = Osdb()
-        osdb.ServerInfo()
-        osdb.GetSubLanguages('pb')
-
-        for path in sys.argv[1:]:
-            if os.path.isfile(path):
-                print
-                print path
-                print videohash(path)
-                for movie in videoinfo(path, osdb):
-                    print movie
-                    videoinfo(path, osdb)
-    except OpenSubtitlesError as e:
-        log.error(e)
