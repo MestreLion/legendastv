@@ -31,8 +31,9 @@ import logging
 
 log = logging.getLogger(__name__)
 
-from .. import g
+from .. import g, datatools as dt
 from . import Provider
+from ..utils import print_debug
 
 
 class OpenSubtitlesError(Exception):
@@ -161,6 +162,62 @@ class OpenSubtitles(Osdb, Provider):
         self.auth = bool(self.account)
         return self.auth
 
+    # https://www.opensubtitles.org/addons/export_languages.php
+    # awk -F'\t' -v p="'" '/1\t1$/ {print p $2 p ": " p $1 p ",  # " $3}' | sort
+    languages = {
+        'ar': 'ara',  # Arabic
+        'at': 'ast',  # Asturian
+        'bg': 'bul',  # Bulgarian
+        'br': 'bre',  # Breton
+        'ca': 'cat',  # Catalan
+        'cs': 'cze',  # Czech
+        'da': 'dan',  # Danish
+        'de': 'ger',  # German
+        'el': 'ell',  # Greek
+        'en': 'eng',  # English
+        'eo': 'epo',  # Esperanto
+        'es': 'spa',  # Spanish
+        'et': 'est',  # Estonian
+        'eu': 'baq',  # Basque
+        'fa': 'per',  # Persian
+        'fi': 'fin',  # Finnish
+        'fr': 'fre',  # French
+        'gl': 'glg',  # Galician
+        'he': 'heb',  # Hebrew
+        'hi': 'hin',  # Hindi
+        'hr': 'hrv',  # Croatian
+        'hu': 'hun',  # Hungarian
+        'id': 'ind',  # Indonesian
+        'is': 'ice',  # Icelandic
+        'it': 'ita',  # Italian
+        'ja': 'jpn',  # Japanese
+        'ka': 'geo',  # Georgian
+        'km': 'khm',  # Khmer
+        'ko': 'kor',  # Korean
+        'mk': 'mac',  # Macedonian
+        'ms': 'may',  # Malay
+        'nl': 'dut',  # Dutch
+        'no': 'nor',  # Norwegian
+        'oc': 'oci',  # Occitan
+        'pb': 'pob',  # Portuguese (BR)
+        'pl': 'pol',  # Polish
+        'pt': 'por',  # Portuguese
+        'ro': 'rum',  # Romanian
+        'ru': 'rus',  # Russian
+        'si': 'sin',  # Sinhalese
+        'sk': 'slo',  # Slovak
+        'sl': 'slv',  # Slovenian
+        'sq': 'alb',  # Albanian
+        'sr': 'scc',  # Serbian
+        'sv': 'swe',  # Swedish
+        'th': 'tha',  # Thai
+        'tl': 'tgl',  # Tagalog
+        'tr': 'tur',  # Turkish
+        'uk': 'ukr',  # Ukrainian
+        'vi': 'vie',  # Vietnamese
+        'zh': 'chi',  # Chinese (simplified)
+        'zt': 'zht',  # Chinese (traditional)
+    }
 
     def getLanguages(self, language="en"):
         # reading from cache
@@ -203,6 +260,42 @@ class OpenSubtitles(Osdb, Provider):
 
         # return from json.load() to guarantee it will be identical as cache read
         return json.loads(json.dumps(languages))
+
+
+    def getMovies(self, text):
+        """ Given a search text, return a list of dicts with basic movie info:
+            id, title, year, type
+        """
+        movies = []
+
+        item = self.GuessMovieFromString([text])[text]
+        if 'BestGuess' in item:
+            item = item['BestGuess']
+            mapping = dict(
+                id       = "IDMovie",
+                title    = "MovieName",
+                year     = "MovieYear",
+                type     = "MovieKind",
+                season   = "SeriesSeason",
+                episode  = "SeriesEpisode",
+                imdb_id  = "IDMovieIMDB",
+            )
+        else:
+            item = item['GuessIt']
+            mapping = dict(
+                id       = "",
+                title    = "title",
+                year     = "year",
+                type     = "type",
+                season   = "season",
+                episode  = "episode",
+                imdb_id  = "",
+            )
+
+        movies.append({k: item.get(v, None) for k, v in mapping.iteritems()})
+        print_debug("Titles found for '{}':\n{}".format(
+                        text, dt.print_dictlist(movies)))
+        return movies
 
 
 
