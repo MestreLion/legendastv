@@ -95,21 +95,34 @@ class Osdb(object):
                 raise OpenSubtitlesError("OSDB.%s requires logging in" % name)
             args = (self.token,) + args
 
+        if name == 'LogIn' and args[1]:
+            logargs = args[:1] + ('***',) + args[2:]  # hide password
+        elif name not in notoken:
+            logargs = ('***',) + args[1:]  # hide token
+        else:
+            logargs = args
+
         # Do the XML-RPC call
         try:
             timeout = socket.getdefaulttimeout()
             socket.setdefaulttimeout(5)
             res = getattr(self.osdb, name)(*args)
-        except (socket.error, httplib.ResponseNotReady) as e:
+        except (socket.error,
+                httplib.ResponseNotReady,
+                xmlrpclib.ProtocolError) as e:
             # most likely [Errno 110] Connection timed out
-            raise OpenSubtitlesError(e)
+            raise OpenSubtitlesError("OSDB.%s%r: %s" % (name, logargs, e))
         finally:
             socket.setdefaulttimeout(timeout)
 
-        log.debug("OSDB.%s%r -> %r",
-                  name,
-                  args[:1] + ('***',) + args[2:] if name == "LogIn" else args,
-                  res)
+        if name == 'LogIn' and 'token' in res:
+            logres = res.copy()
+            logres['token'] = '***'
+        else:
+            logres = res
+
+
+        log.debug("OSDB.%s%r -> %r", name, logargs, logres)
 
         # Check for result error status
         if name not in nostatus and not res.get('status', "").startswith("200"):
@@ -140,6 +153,13 @@ class OpenSubtitles(Osdb, Provider):
 
     def __init__(self, *args, **kwargs):
         super(OpenSubtitles, self).__init__(*args, **kwargs)
+        self.auth = False
+
+
+    def login(self, login, password):
+        self.LogIn(login, password)
+        self.auth = bool(self.account)
+        return self.auth
 
 
     def getLanguages(self, language="en"):
