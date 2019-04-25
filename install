@@ -1,38 +1,36 @@
 #!/bin/bash
 
-# Nautilus 3.5.1 onwards: ${XDG_DATA_HOME:-"$HOME"/.local/share}/nautilus/scripts
-# https://bugzilla.gnome.org/show_bug.cgi?id=646584
-# https://github.com/GNOME/nautilus/commit/05e7b7cc4d70b0c89442241e1a741d63a6c5d24d
-nautilus_scripts=$(readlink -f "$HOME/.gnome2/nautilus-scripts")
+prefix=${1:-.}  # Suggestion: Subtitles
 
-link_nautilus="$nautilus_scripts"/Legendas.TV
-link_exec="$HOME"/.local/bin/legendastv
+nautilus_scripts=$(readlink -f "${XDG_DATA_HOME:-"$HOME"/.local/share}"/nautilus/scripts)
+
+link_nautilus=$nautilus_scripts/$prefix/Legendas.TV
+link_srtclean=$nautilus_scripts/$prefix/Clean
+link_exec=$HOME/.local/bin/legendastv
 
 mydir=$(dirname "$(readlink -f "$0")")
 configdir=${XDG_CONFIG_HOME:-"$HOME"/.config}/legendastv
 
 relpath(){ python -c "import sys, os.path; print os.path.relpath(*sys.argv[1:])" "$@"; }
 
-echo "*** Creating Nautilus Scripts symlink"
+echo "*** Creating Nautilus Scripts symlinks"
+mkdir -p -- "$(dirname "$link_nautilus")" "$(dirname "$link_srtclean")"
 if ! [[ -h "$link_nautilus" ]]; then
-	ln -s "$(relpath "$mydir" "$nautilus_scripts")"/nautilus-script "$link_nautilus"
+	ln -s "$(relpath "$mydir" "$(dirname "$link_nautilus")")"/nautilus-script "$link_nautilus"
+fi
+if ! [[ -h "$link_srtclean" ]]; then
+	ln -s "$(relpath "$mydir" "$(dirname "$link_srtclean")")"/srtclean.nautilus-script "$link_srtclean"
 fi
 
 echo "*** Creating executable symlink to '$link_exec'"
 mkdir -p "$(dirname "$link_exec")"
 if ! [[ -h "$link_exec" ]]; then
 	ln -s "$(relpath "$mydir" "$(dirname "$link_exec")")"/legendastv.py "$link_exec"
+	ln -s "$(relpath "$mydir" "$(dirname "$link_exec")")"/srtclean "$(dirname "$link_exec")"
 fi
 
 echo "*** Installing dependencies"
-
-# for up to 13.10
-sudo apt-get install -y python-pip unrar python-magic python-lxml
-sudo pip install rarfile pysrt
-
-# for 14.04 onwards
-# python-unrar will pull unrar-free instead of unrar
-#sudo apt-get install -y python-unrar python-magic python-pysrt python-lxml
+sudo apt install -y python-{rarfile,magic,pysrt,lxml,dbus}
 
 echo "*** MANUALLY open '$configdir/legendastv.ini' and fill in your username and password!"
 echo "*** MANUALLY add '$(dirname "$link_exec")' to your \$PATH!"
