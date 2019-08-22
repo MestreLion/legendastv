@@ -1,4 +1,3 @@
-#!/usr/bin/python
 # -*- coding: utf-8 -*-
 #
 #    Copyright (C) 2012 Rodrigo Silva (MestreLion) <linux@rodrigosilva.com>
@@ -140,7 +139,6 @@ def retrieve_subtitle_for_movie(usermovie, remote=False):
 
     log.debug("Target data: %s", movie)
 
-    legendastv = get_provider()
 
     # Let's begin with a movie search
     if movie['type'] == 'episode':
@@ -153,6 +151,7 @@ def retrieve_subtitle_for_movie(usermovie, remote=False):
         notify("Searching titles for '%s'", movie['title'],
                icon=g.globals['appicon'])
 
+    legendastv = get_provider()
     movies = legendastv.getMovies(movie['title'])
 
     if len(movies) > 0:
