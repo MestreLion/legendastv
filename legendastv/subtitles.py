@@ -139,11 +139,17 @@ def retrieve_subtitle_for_movie(usermovie, remote=False):
 
     log.debug("Target data: %s", movie)
 
+    # Perform Mapping
+    if movie['title'].lower() in g.mapping:
+        log.debug("Using title mapping: %s = %s",
+                  movie['title'],
+                  g.mapping[movie['title'].lower()])
+        movie['title'] = g.mapping[movie['title'].lower()]
 
     # Let's begin with a movie search
     if movie['type'] == 'episode':
         movie['release'] = dt.clean_string(filename)
-        notify("Searching titles for '%s %s Season'",
+        notify("Searching titles for: %s %s Season",
                movie['title'],
                season_to_ord(movie['season']),
                icon=g.globals['appicon'])
@@ -176,20 +182,8 @@ def retrieve_subtitle_for_movie(usermovie, remote=False):
                 m['search'] = m['search'].strip()
 
         # May the Force be with... the most similar!
-        title = ""
-        if movie['title'].lower() in g.mapping:
-            for m in movies:
-                if m[search] == g.mapping[movie['title'].lower()]:
-                    title = movie['title']
-                    movies = [m]
-                    break
-
-        if title:
-            result = dt.choose_best_by_key(title, movies, 'search')
-        else:
-            title = dt.clean_string(g.mapping.get(movie['title'].lower(),
-                                                  movie['title']))
-            result = dt.choose_best_by_key(title + season, movies, 'search')
+        title = dt.clean_string(movie['title'])
+        result = dt.choose_best_by_key(title + season, movies, 'search')
 
         # But... Is it really similar?
         if len(movies) == 1 or result['similarity'] >= g.options['similarity']:
