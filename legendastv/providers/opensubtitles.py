@@ -298,6 +298,100 @@ class OpenSubtitles(Osdb, Provider):
         return movies
 
 
+    """ Convenience wrappers for the main getSubtitles method """
+
+    def getSubtitlesByMovie(self, movie, stype=None, lang=None):
+        return self.getSubtitles(movie_id=movie['id'],
+                                 stype=stype,
+                                 lang=lang)
+
+    def getSubtitlesByMovieId(self, movie_id, stype=None, lang=None):
+        return self.getSubtitles(movie_id=movie_id,
+                                 stype=stype,
+                                 lang=lang)
+
+    def getSubtitlesByText(self, text, stype=None, lang=None):
+        return self.getSubtitles(text=text,
+                                 stype=stype,
+                                 lang=lang)
+
+    def getSubtitles(self, text="", stype=None, lang=None, vinfo=None, vpath=None):  # @UnusedVariable
+        """ Main method for searching, parsing and retrieving subtitles info.
+            Arguments:
+            text  - The text to search for
+            stype - The type of subtitle. Either blank or a char as:
+                     'p' - for subtitle pack (usually for a Series' whole Season)
+                     'd' - destaque (highlighted subtitle, considered superior)
+            lang  - The subtitle language to search for. An int as defined
+                      in constants
+            movie_id - search all subtitles from the specified movie. If used,
+                       text and type (but not lang) are ignored
+            Either text or movie_id must be provided
+            Return a list of dictionaries with the subtitles found. Some info
+            is related to the movie, not to that particular subtitle
+        """
+        subtitles = []
+        subs = []  # @UnusedVariable
+
+        if lang is None:
+            lang = g.options['language'] or ""
+
+        # Re-map 2-digit to 3-digit language code
+        lang = ','.join(self.languages.get(_, _) for _ in lang.split(','))
+
+        if vpath and not vinfo:
+            vinfo = videoinfo(vpath, self)
+
+        if vpath:
+#         for title in vinfo or []:
+#             subs.extend(self.SearchSubtitles([{
+#                 'sublanguageid': lang,
+#                 'moviehash':     title['hash'],
+#                 'moviebytesize': title['size'],
+#             }]))
+#             subs.extend(self.SearchSubtitles([{
+#                 'sublanguageid': lang,
+#                 'imdbid':        title['MovieImdbID'],
+#                 'season':        title['SeriesSeason'],
+#                 'episode':       title['SeriesEpisode'],
+#             }]))
+#             subs.extend(self.SearchSubtitles([{
+#                 'sublanguageid': lang,
+#                 'query':         text or title['MovieName'],
+#                 'tag':           os.path.basename(vpath or '') or None,
+#             }]))
+            for sub in self.SearchSubtitles([{
+                'sublanguageid': lang,
+                'tag':           os.path.basename(vpath or '') or None,
+            }]):
+
+#                 sub = dict(
+#                     hash        = dataurl[2],
+#                     title       = dataurl[3],
+#                     downloads   = dataline[0],
+#                     rating      = dataline[3][:-1] or None,
+#                     date        = data[4].strip()[3:],
+#                     user_name   = data[3],
+#                     release     = data[1],
+#                     pack        = e.attrib['class'] == 'pack',
+#                     highlight   = e.attrib['class'] == 'destaque',
+#                     flag        = e.xpath("./img")[0].attrib['src']
+#                 )
+#                 dt.fields_to_int(sub, 'downloads', 'rating')
+#                 sub['language'] = languages.get(re.search(self._re_sub_language,
+#                                                           sub['flag']).group(1))
+#                 sub['date'] = datetime.strptime(sub['date'], '%d/%m/%Y - %H:%M')
+#                 if sub['release'].startswith("(p)") and sub['pack']:
+#                     sub['release'] = sub['release'][3:]
+
+                subtitles.append(sub)
+
+#         if text:
+#             subtitles.extend()
+
+        return subtitles
+
+
 
 
 def videohash(filename):
@@ -335,6 +429,10 @@ def videoinfo(filename, osdb=None):
                 # OSDB returned a list instead of a dictionary, Lord knows why
                 log.warn("OSDB returned a list for hash '%s'", hash)
                 result = result[0]
+            # Inject video hash and byte size into result
+            for r in result:
+                r['hash'] = vhash
+                r['size'] = os.path.getsize(filename)
     except OpenSubtitlesError as e:
         log.error(e)
 
