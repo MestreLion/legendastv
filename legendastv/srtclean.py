@@ -119,7 +119,7 @@ def detect_encoding(filename, fallback=None):
 
     # Debian's python-magic, from `file` upstream
     if hasattr(magic.Magic, "file"):
-        ms = magic.open(magic.MAGIC_MIME_ENCODING)
+        ms = magic.open(magic.MAGIC_MIME_ENCODING)  # @UndefinedVariable
         ms.load()
         encoding = ms.file(filename)
         ms.close()
@@ -178,7 +178,7 @@ def main(argv=None):
 
         modified = clean(subs, args.blacklistfile, rebuild_index=args.rebuild_index)
 
-        if modified:
+        if modified or args.output_encoding:
             if args.in_place:
                 if args.backup:
                     shutil.copy(path, "%s.%s.bak" % (path, __name__.split('.')[-1]))
