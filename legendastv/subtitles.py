@@ -140,11 +140,13 @@ def retrieve_subtitle_for_movie(usermovie, remote=False):
     log.debug("Target data: %s", movie)
 
     # Perform Mapping
+    mapped = False
     if movie['title'].lower() in g.mapping:
         log.debug("Using title mapping: %s = %s",
                   movie['title'],
                   g.mapping[movie['title'].lower()])
         movie['title'] = g.mapping[movie['title'].lower()]
+        mapped = True
 
     # Let's begin with a movie search
     if movie['type'] == 'episode':
@@ -180,6 +182,11 @@ def retrieve_subtitle_for_movie(usermovie, remote=False):
                 for tag in ['Temporada', 'temporada', 'Season', 'season', u'\xaa']:
                     m['search'] = m['search'].replace(tag, "")
                 m['search'] = m['search'].strip()
+            # For mapped titles, keep the match and discard others
+            if mapped and movie['title'] == m[search]:
+                movies = [m]
+                log.debug("Enforcing title mapping, match found")
+                break
 
         # May the Force be with... the most similar!
         title = dt.clean_string(movie['title'])
