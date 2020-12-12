@@ -30,7 +30,7 @@ log = logging.getLogger(__name__)
 
 filesystem_encoding = sys.getfilesystemencoding()
 
-globals = {
+globals = {  # @ReservedAssignment
 
     'appname'   : __name__.split(".")[0],
 
