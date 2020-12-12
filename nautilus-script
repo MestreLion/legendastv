@@ -9,4 +9,4 @@
 
 path=${1:-$PWD}
 shift
-legendastv "$path" "$@"
+ltv "$path" "$@"
